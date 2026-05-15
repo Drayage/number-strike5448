@@ -12,6 +12,10 @@
     pickUnscannedParity,
     pickUnlockedPosition,
     validateGuess,
+    countDigitOccurrences,
+    getMostRepeatedDigit,
+    getMaxRepetitionCount,
+    findAllPositions,
   } = window.NumberChallengeCore;
 
   const SAVE_KEY = "number-challenge-save";
@@ -48,6 +52,13 @@
       parityScanner: 0,
       compass: 0,
       updown: 0,
+      counter: 0,
+      duplicateDetector: false,
+      signalDetector: 0,
+      fullHeal: false,
+      eyeOfTruth: 0,
+      mouthOfTruth: 0,
+      handOfTruth: 0,
     },
     phase: "playing",
     secret: [],
@@ -58,7 +69,19 @@
     history: [],
     lastReward: null,
     shopBought: {},
+    usedOnce: { fullHeal: false, eyeOfTruth: false, mouthOfTruth: false, handOfTruth: false },
+    counterIntel: [],
+    signalIntel: [],
+    mouthOfTruthIntel: null,
+    slotMemos: {},
+    digitMemos: {},
   });
+
+  // Non-persisted runtime state
+  let digitPickMode = null;  // null | "counter" | "signalDetector" | "handOfTruth"
+  let memoMode = false;
+  let memoTargetSlot = null;
+  let selectedLogIndices = [];  // up to 2 indices for log comparison
 
   let state = loadState() ?? initialState();
 
@@ -85,14 +108,28 @@
     useLockerButton: $("#useLockerButton"),
     useScannerButton: $("#useScannerButton"),
     useUpdownButton: $("#useUpdownButton"),
+    useCounterButton: $("#useCounterButton"),
+    useSignalDetectorButton: $("#useSignalDetectorButton"),
+    useEyeOfTruthButton: $("#useEyeOfTruthButton"),
+    useMouthOfTruthButton: $("#useMouthOfTruthButton"),
+    useHandOfTruthButton: $("#useHandOfTruthButton"),
     eliminatorCount: $("#eliminatorCount"),
     lockerCount: $("#lockerCount"),
     scannerCount: $("#scannerCount"),
     updownCount: $("#updownCount"),
+    counterCount: $("#counterCount"),
+    signalDetectorCount: $("#signalDetectorCount"),
+    eyeOfTruthCount: $("#eyeOfTruthCount"),
+    mouthOfTruthCount: $("#mouthOfTruthCount"),
+    handOfTruthCount: $("#handOfTruthCount"),
     eliminatedDigits: $("#eliminatedDigits"),
     lockedDigits: $("#lockedDigits"),
     parityIntel: $("#parityIntel"),
     duplicateIntel: $("#duplicateIntel"),
+    duplicateDetectorIntel: $("#duplicateDetectorIntel"),
+    counterIntel: $("#counterIntel"),
+    signalIntel: $("#signalIntel"),
+    mouthOfTruthIntel: $("#mouthOfTruthIntel"),
     compassIntel: $("#compassIntel"),
     updownIntel: $("#updownIntel"),
     retryIntel: $("#retryIntel"),
@@ -102,6 +139,7 @@
     overlayBody: $("#overlayBody"),
     overlayButton: $("#overlayButton"),
     bestRoundLabel: $("#bestRoundLabel"),
+    memoToggleButton: $("#memoToggleButton"),
   };
 
   function loadState() {
@@ -128,6 +166,12 @@
       updownIntel: saved.updownIntel ?? "없음",
       history: saved.history ?? [],
       shopBought: saved.shopBought ?? {},
+      usedOnce: { ...fresh.usedOnce, ...(saved.usedOnce ?? {}) },
+      counterIntel: saved.counterIntel ?? [],
+      signalIntel: saved.signalIntel ?? [],
+      mouthOfTruthIntel: saved.mouthOfTruthIntel ?? null,
+      slotMemos: saved.slotMemos ?? {},
+      digitMemos: saved.digitMemos ?? {},
     };
   }
 
@@ -167,10 +211,20 @@
     elements.lockerCount.textContent = state.inventory.locker;
     elements.scannerCount.textContent = state.inventory.parityScanner;
     elements.updownCount.textContent = state.inventory.updown;
+    elements.counterCount.textContent = state.inventory.counter;
+    elements.signalDetectorCount.textContent = state.inventory.signalDetector;
+    elements.eyeOfTruthCount.textContent = state.inventory.eyeOfTruth;
+    elements.mouthOfTruthCount.textContent = state.inventory.mouthOfTruth;
+    elements.handOfTruthCount.textContent = state.inventory.handOfTruth;
     elements.useEliminatorButton.disabled = state.inventory.eliminator <= 0 || isShop || isGameOver;
     elements.useLockerButton.disabled = state.inventory.locker <= 0 || isShop || isGameOver;
     elements.useScannerButton.disabled = state.inventory.parityScanner <= 0 || isShop || isGameOver;
     elements.useUpdownButton.disabled = state.inventory.updown <= 0 || isShop || isGameOver;
+    elements.useCounterButton.disabled = state.inventory.counter <= 0 || isShop || isGameOver;
+    elements.useSignalDetectorButton.disabled = state.inventory.signalDetector <= 0 || isShop || isGameOver;
+    elements.useEyeOfTruthButton.disabled = state.inventory.eyeOfTruth <= 0 || isShop || isGameOver;
+    elements.useMouthOfTruthButton.disabled = state.inventory.mouthOfTruth <= 0 || isShop || isGameOver;
+    elements.useHandOfTruthButton.disabled = state.inventory.handOfTruth <= 0 || isShop || isGameOver;
     elements.eliminatedDigits.textContent = state.eliminated.length ? state.eliminated.join(", ") : "없음";
     elements.lockedDigits.textContent = state.locked.length
       ? state.locked
@@ -187,6 +241,41 @@
           .join(", ")
       : "없음";
     elements.duplicateIntel.textContent = getDuplicateIntel(config);
+
+    // duplicateDetectorIntel
+    if (elements.duplicateDetectorIntel) {
+      if (state.inventory.duplicateDetector) {
+        if (config.allowDuplicate) {
+          elements.duplicateDetectorIntel.textContent = `최대 중복 ${getMaxRepetitionCount(state.secret)}개`;
+        } else {
+          elements.duplicateDetectorIntel.textContent = "이번 라운드 중복 없음";
+        }
+      } else {
+        elements.duplicateDetectorIntel.textContent = "미보유";
+      }
+    }
+
+    // counterIntel
+    if (elements.counterIntel) {
+      elements.counterIntel.textContent = state.counterIntel.length
+        ? state.counterIntel.map((e) => `숫자 ${e.digit}: ${e.count}개`).join(", ")
+        : "없음";
+    }
+
+    // signalIntel
+    if (elements.signalIntel) {
+      elements.signalIntel.textContent = state.signalIntel.length
+        ? state.signalIntel.map((e) => `${e.digit}: ${e.present ? "포함" : "없음"}`).join(", ")
+        : "없음";
+    }
+
+    // mouthOfTruthIntel
+    if (elements.mouthOfTruthIntel) {
+      elements.mouthOfTruthIntel.textContent = state.mouthOfTruthIntel
+        ? `최다반복: ${state.mouthOfTruthIntel.digit}(${state.mouthOfTruthIntel.count}개)`
+        : "없음";
+    }
+
     elements.compassIntel.textContent = state.inventory.compass > 0
       ? `보상 +${state.inventory.compass * 25}% (${state.inventory.compass}중첩)`
       : "없음";
@@ -210,15 +299,35 @@
     for (let index = 0; index < config.digits; index += 1) {
       const slot = document.createElement("div");
       const locked = state.locked.find((entry) => entry.index === index);
-      slot.className = locked ? "code-slot revealed" : "code-slot";
+      let className = locked ? "code-slot revealed" : "code-slot";
+      if (memoMode && memoTargetSlot === index) {
+        className += " memo-target";
+      }
+      slot.className = className;
       slot.textContent = locked ? locked.digit : "?";
+
+      // Show memo digits if any
+      const memos = state.slotMemos[index];
+      if (memos && memos.length > 0) {
+        const memoSpan = document.createElement("span");
+        memoSpan.className = "slot-memo";
+        memoSpan.textContent = memos.join("");
+        slot.appendChild(memoSpan);
+      }
+
+      if (memoMode) {
+        slot.style.cursor = "pointer";
+        slot.addEventListener("click", () => activateSlotMemo(index));
+      }
+
       elements.codeSlots.append(slot);
     }
   }
 
   function renderHistory() {
     elements.historyList.innerHTML = "";
-    const entries = state.history.slice(-10).reverse();
+    const allEntries = state.history.slice(-10);
+    const entries = allEntries.slice().reverse();
 
     if (entries.length === 0) {
       const empty = document.createElement("li");
@@ -228,14 +337,81 @@
       return;
     }
 
-    entries.forEach((entry) => {
+    // For log comparison: find differing digit positions between two selected entries
+    let cmpPositions = null;
+    if (selectedLogIndices.length === 2) {
+      const [i1, i2] = selectedLogIndices;
+      const e1 = allEntries[i1];
+      const e2 = allEntries[i2];
+      if (e1 && e2) {
+        cmpPositions = { i1, i2, positions: [] };
+        const maxLen = Math.max(e1.guess.length, e2.guess.length);
+        for (let p = 0; p < maxLen; p++) {
+          if (e1.guess[p] !== e2.guess[p]) {
+            cmpPositions.positions.push(p);
+          }
+        }
+      }
+    }
+
+    entries.forEach((entry, reversedIdx) => {
+      // reversedIdx 0 = newest. The actual index in allEntries is (allEntries.length - 1 - reversedIdx)
+      const actualIndex = allEntries.length - 1 - reversedIdx;
       const item = document.createElement("li");
-      item.className = entry.solved ? "history-item solved" : "history-item";
+      const isSelected = selectedLogIndices.includes(actualIndex);
+      item.className = entry.solved
+        ? "history-item solved" + (isSelected ? " log-selected" : "")
+        : "history-item" + (isSelected ? " log-selected" : "");
+      item.dataset.logIndex = actualIndex;
+
+      // Build the guess span with diff highlighting
+      const prevEntry = actualIndex > 0 ? allEntries[actualIndex - 1] : null;
+      let guessHtml = "";
+
+      if (cmpPositions && (actualIndex === cmpPositions.i1 || actualIndex === cmpPositions.i2)) {
+        // Log comparison highlighting overrides per-entry diff
+        for (let p = 0; p < entry.guess.length; p++) {
+          if (cmpPositions.positions.includes(p)) {
+            guessHtml += `<strong class="cmp-digit">${entry.guess[p]}</strong>`;
+          } else {
+            guessHtml += entry.guess[p];
+          }
+        }
+      } else if (prevEntry) {
+        // Per-entry diff vs previous guess
+        for (let p = 0; p < entry.guess.length; p++) {
+          if (entry.guess[p] !== prevEntry.guess[p]) {
+            guessHtml += `<strong class="diff-digit">${entry.guess[p]}</strong>`;
+          } else {
+            guessHtml += entry.guess[p];
+          }
+        }
+      } else {
+        guessHtml = entry.guess;
+      }
+
       item.innerHTML = `
-        <span>${entry.guess}</span>
+        <span>${guessHtml}</span>
         <strong>${entry.strikes}S ${entry.balls}B</strong>
         <small>${getHistoryNote(entry)}</small>
       `;
+
+      item.addEventListener("click", () => {
+        const idx = parseInt(item.dataset.logIndex, 10);
+        const pos = selectedLogIndices.indexOf(idx);
+        if (pos !== -1) {
+          // Deselect
+          selectedLogIndices.splice(pos, 1);
+        } else if (selectedLogIndices.length < 2) {
+          selectedLogIndices.push(idx);
+        } else {
+          // Replace oldest selection
+          selectedLogIndices.shift();
+          selectedLogIndices.push(idx);
+        }
+        renderHistory();
+      });
+
       elements.historyList.append(item);
     });
   }
@@ -259,16 +435,36 @@
   function renderShopButtons() {
     document.querySelectorAll("[data-shop-item]").forEach((button) => {
       const key = button.dataset.shopItem;
+      const item = SHOP_ITEMS[key];
+      if (!item) return;
       const price = getItemPrice(key);
-      const soldOut = key === "magnifier" && state.inventory.magnifier;
-      const shopMaxed = (state.shopBought[key] ?? 0) >= 2;
+      const shopBoughtCount = state.shopBought[key] ?? 0;
+      const shopLimit = item.shopLimit ?? 2;
+      const remaining = shopLimit - shopBoughtCount;
+      const shopMaxed = remaining <= 0;
+      const soldOut =
+        (key === "magnifier" && state.inventory.magnifier) ||
+        (key === "duplicateDetector" && state.inventory.duplicateDetector) ||
+        (item.gameOnce && state.usedOnce[key]);
+      const tooEarly = item.minRound != null && state.round < item.minRound;
 
-      button.disabled = state.gold < price || soldOut || shopMaxed;
+      button.disabled = state.gold < price || soldOut || shopMaxed || tooEarly;
       button.classList.toggle("sold-out", soldOut);
-      button.classList.toggle("shop-maxed", shopMaxed);
+      button.classList.toggle("shop-maxed", shopMaxed && !soldOut);
+      button.classList.toggle("too-early", tooEarly);
 
       const priceEl = button.querySelector("strong");
-      if (priceEl) priceEl.textContent = shopMaxed ? "이번 구매 완료" : `${price} Gold`;
+      if (priceEl) {
+        if (soldOut) priceEl.textContent = "구매 완료";
+        else if (tooEarly) priceEl.textContent = `${item.minRound}라운드~`;
+        else if (shopMaxed) priceEl.textContent = "이번 구매 완료";
+        else priceEl.textContent = `${price} Gold`;
+      }
+
+      const stockEl = button.querySelector(".shop-stock");
+      if (stockEl) {
+        stockEl.textContent = !soldOut && !tooEarly && !shopMaxed ? `재고 ${remaining}` : "";
+      }
     });
   }
 
@@ -402,6 +598,11 @@
     state.updownIntel = "없음";
     state.history = [];
     state.lastReward = null;
+    state.counterIntel = [];
+    state.signalIntel = [];
+    state.mouthOfTruthIntel = null;
+    state.slotMemos = {};
+    state.digitMemos = {};
     setHint("새 코드가 생성되었습니다.", "normal");
 
     if (nextRound === 16) {
@@ -418,7 +619,10 @@
     const price = getItemPrice(key);
     if (!item || state.gold < price) return;
     if (key === "magnifier" && state.inventory.magnifier) return;
-    if ((state.shopBought[key] ?? 0) >= 2) return;
+    if (key === "duplicateDetector" && state.inventory.duplicateDetector) return;
+    if (item.gameOnce && state.usedOnce[key]) return;
+    const shopLimit = item.shopLimit ?? 2;
+    if ((state.shopBought[key] ?? 0) >= shopLimit) return;
 
     state.gold -= price;
     state.shopBought[key] = (state.shopBought[key] ?? 0) + 1;
@@ -430,6 +634,15 @@
       state.hp = Math.min(state.maxHp, state.hp + 1);
     } else if (key === "magnifier") {
       state.inventory.magnifier = true;
+    } else if (key === "duplicateDetector") {
+      state.inventory.duplicateDetector = true;
+    } else if (key === "fullHeal") {
+      state.hp = state.maxHp;
+      state.usedOnce.fullHeal = true;
+      state.inventory.fullHeal = true;
+    } else if (key === "eyeOfTruth" || key === "mouthOfTruth" || key === "handOfTruth") {
+      state.inventory[key] += 1;
+      state.usedOnce[key] = true;
     } else {
       state.inventory[key] += 1;
     }
@@ -513,11 +726,119 @@
     render();
   }
 
+  function useCounter() {
+    if (state.inventory.counter <= 0 || state.phase !== "playing") return;
+    digitPickMode = "counter";
+    setHint("카운터: 확인할 숫자를 선택하세요.", "warn");
+    renderDigitPicker(true);
+  }
+
+  function useSignalDetector() {
+    if (state.inventory.signalDetector <= 0 || state.phase !== "playing") return;
+    digitPickMode = "signalDetector";
+    setHint("신호 탐색기: 확인할 숫자를 선택하세요.", "warn");
+    renderDigitPicker(true);
+  }
+
+  function useEyeOfTruth() {
+    if (state.inventory.eyeOfTruth <= 0 || state.phase !== "playing") return;
+    // reveal 2 random unlocked positions (like locker but 2 at once)
+    let revealed = 0;
+    for (let i = 0; i < 2; i++) {
+      const pos = pickUnlockedPosition(state.secret, state.locked);
+      if (!pos) break;
+      state.locked.push(pos);
+      revealed++;
+    }
+    state.inventory.eyeOfTruth -= 1;
+    setHint(revealed > 0 ? `진실의 눈: ${revealed}개 자리가 공개되었습니다.` : "이미 모든 자리가 공개되었습니다.", revealed > 0 ? "success" : "warn");
+    render();
+  }
+
+  function useMouthOfTruth() {
+    if (state.inventory.mouthOfTruth <= 0 || state.phase !== "playing") return;
+    const result = getMostRepeatedDigit(state.secret);
+    state.mouthOfTruthIntel = result;
+    state.inventory.mouthOfTruth -= 1;
+    setHint(`진실의 입: 가장 많이 반복되는 숫자는 ${result.digit}(${result.count}개)입니다.`, "success");
+    render();
+  }
+
+  function useHandOfTruth() {
+    if (state.inventory.handOfTruth <= 0 || state.phase !== "playing") return;
+    digitPickMode = "handOfTruth";
+    setHint("진실의 손: 위치를 확인할 숫자를 선택하세요.", "warn");
+    renderDigitPicker(true);
+  }
+
+  function renderDigitPicker(visible) {
+    const picker = document.getElementById("digitPicker");
+    if (!picker) return;
+    picker.hidden = !visible;
+  }
+
+  function resolveDigitPick(digit) {
+    const mode = digitPickMode;
+    digitPickMode = null;
+    renderDigitPicker(false);
+
+    if (mode === "counter") {
+      const cnt = countDigitOccurrences(state.secret, digit);
+      state.counterIntel.push({ digit, count: cnt });
+      state.inventory.counter -= 1;
+      setHint(`카운터: ${digit}은(는) 정답에 ${cnt}개 포함됩니다.`, "success");
+    } else if (mode === "signalDetector") {
+      const present = state.secret.includes(digit);
+      state.signalIntel.push({ digit, present });
+      state.inventory.signalDetector -= 1;
+      setHint(`신호 탐색기: ${digit}은(는) 정답에 ${present ? "포함됩니다" : "없습니다"}.`, "success");
+    } else if (mode === "handOfTruth") {
+      const positions = findAllPositions(state.secret, digit);
+      positions.forEach((i) => {
+        if (!state.locked.some((l) => l.index === i)) {
+          state.locked.push({ digit, index: i });
+        }
+      });
+      state.inventory.handOfTruth -= 1;
+      setHint(`진실의 손: ${digit}은(는) ${positions.map((i) => `${i + 1}번째`).join(", ")} 자리에 있습니다.`, "success");
+    }
+    render();
+  }
+
+  function toggleMemoMode() {
+    memoMode = !memoMode;
+    memoTargetSlot = null;
+    const btn = document.getElementById("memoToggleButton");
+    if (btn) btn.classList.toggle("active", memoMode);
+    renderCodeSlots(getRoundConfig(state.round));
+    setHint(memoMode ? "메모 모드: 숫자 칸을 눌러 메모를 입력하세요." : "메모 모드 해제.", "normal");
+  }
+
+  function activateSlotMemo(index) {
+    memoTargetSlot = memoTargetSlot === index ? null : index;
+    renderCodeSlots(getRoundConfig(state.round));
+    renderMemoKeypad();
+  }
+
+  function renderMemoKeypad() {
+    // In memo mode with target slot, digit buttons toggle digits in slotMemos
+    // This updates visual state of keypad buttons
+    renderKeypad();
+  }
+
   function newRun() {
     state = initialState();
     state.secret = generateCode(getRoundConfig(1));
     clearSave();
     hideOverlay();
+    // Reset runtime state
+    digitPickMode = null;
+    memoMode = false;
+    memoTargetSlot = null;
+    selectedLogIndices = [];
+    renderDigitPicker(false);
+    const memoBtn = document.getElementById("memoToggleButton");
+    if (memoBtn) memoBtn.classList.remove("active");
     setHint("새 도전을 시작했습니다.", "normal");
     render();
     elements.guessInput.focus();
@@ -526,6 +847,64 @@
   function handleKeypad(value) {
     const config = getRoundConfig(state.round);
     if (state.phase !== "playing") {
+      return;
+    }
+
+    // If digitPickMode is active, route digit presses to resolveDigitPick
+    if (digitPickMode !== null) {
+      if (/^\d$/.test(value)) {
+        resolveDigitPick(value);
+      } else if (value === "back" || value === "enter") {
+        // Cancel digit pick mode
+        digitPickMode = null;
+        renderDigitPicker(false);
+        setHint("취소되었습니다.", "normal");
+      }
+      return;
+    }
+
+    // If memo mode with a target slot, route digit presses to slot memo
+    if (memoMode && memoTargetSlot !== null) {
+      if (/^\d$/.test(value)) {
+        if (!state.slotMemos[memoTargetSlot]) {
+          state.slotMemos[memoTargetSlot] = [];
+        }
+        const memos = state.slotMemos[memoTargetSlot];
+        const idx = memos.indexOf(value);
+        if (idx !== -1) {
+          memos.splice(idx, 1);
+        } else {
+          memos.push(value);
+          memos.sort();
+        }
+        renderCodeSlots(config);
+        saveState();
+        return;
+      } else if (value === "back") {
+        // Close slot selection
+        memoTargetSlot = null;
+        renderCodeSlots(config);
+        return;
+      } else if (value === "enter") {
+        // Cancel memo mode
+        toggleMemoMode();
+        return;
+      }
+      return;
+    }
+
+    // If memo mode without target slot: digit presses cycle digitMemos annotation
+    if (memoMode && /^\d$/.test(value)) {
+      const current = state.digitMemos[value] ?? null;
+      if (current === null) {
+        state.digitMemos[value] = "O";
+      } else if (current === "O") {
+        state.digitMemos[value] = "X";
+      } else {
+        state.digitMemos[value] = null;
+      }
+      renderKeypad();
+      saveState();
       return;
     }
 
@@ -579,6 +958,20 @@
       const val = button.dataset.keypad;
       if (/^\d$/.test(val)) {
         button.classList.toggle("eliminated", state.eliminated.includes(val));
+
+        // Show annotation badge from digitMemos
+        let annotationEl = button.querySelector(".keypad-annotation");
+        const annotation = state.digitMemos[val] ?? null;
+        if (annotation) {
+          if (!annotationEl) {
+            annotationEl = document.createElement("span");
+            annotationEl.className = "keypad-annotation";
+            button.appendChild(annotationEl);
+          }
+          annotationEl.textContent = annotation;
+        } else if (annotationEl) {
+          annotationEl.remove();
+        }
       }
     });
   }
@@ -587,6 +980,7 @@
     elements.guessInput.readOnly = window.matchMedia("(max-width: 560px)").matches;
   }
 
+  // Event listeners
   elements.guessForm.addEventListener("submit", submitGuess);
   elements.nextRoundButton.addEventListener("click", startNextRound);
   elements.newRunButton.addEventListener("click", newRun);
@@ -595,11 +989,34 @@
   elements.useLockerButton.addEventListener("click", useLocker);
   elements.useScannerButton.addEventListener("click", useScanner);
   elements.useUpdownButton.addEventListener("click", useUpdown);
+  elements.useCounterButton.addEventListener("click", useCounter);
+  elements.useSignalDetectorButton.addEventListener("click", useSignalDetector);
+  elements.useEyeOfTruthButton.addEventListener("click", useEyeOfTruth);
+  elements.useMouthOfTruthButton.addEventListener("click", useMouthOfTruth);
+  elements.useHandOfTruthButton.addEventListener("click", useHandOfTruth);
+  if (elements.memoToggleButton) {
+    elements.memoToggleButton.addEventListener("click", toggleMemoMode);
+  }
   document.querySelectorAll("[data-shop-item]").forEach((button) => {
     button.addEventListener("click", () => buyItem(button.dataset.shopItem));
   });
   document.querySelectorAll("[data-keypad]").forEach((button) => {
     button.addEventListener("click", () => handleKeypad(button.dataset.keypad));
+  });
+  // Digit picker buttons
+  document.querySelectorAll("[data-pick]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const pick = button.dataset.pick;
+      if (pick === "cancel") {
+        digitPickMode = null;
+        renderDigitPicker(false);
+        setHint("취소되었습니다.", "normal");
+      } else if (/^\d$/.test(pick)) {
+        if (digitPickMode !== null) {
+          resolveDigitPick(pick);
+        }
+      }
+    });
   });
   window.addEventListener("resize", syncInputLock);
 
