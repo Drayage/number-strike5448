@@ -188,11 +188,7 @@ h2 {
 .mobile-nav-btn {
   display: none;
   width: 100%;
-  min-height: 40px;
-  font-size: 0.9rem;
-  color: var(--accent);
-  border-color: var(--accent);
-  background: rgba(63, 208, 180, 0.08);
+  margin-bottom: 8px;
 }
 
 .code-slots {
