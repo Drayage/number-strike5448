@@ -47,9 +47,12 @@
               <p class="eyebrow">Target Code</p>
               <h2 id="phaseLabel">Phase 1</h2>
             </div>
-            <button id="newRunButton" class="icon-button" type="button" title="새 도전" aria-label="새 도전">
-              ↻
-            </button>
+            <div class="panel-header-actions">
+              <button id="memoToggleButton" class="icon-button" type="button" title="메모 모드" aria-label="메모 모드">✎</button>
+              <button id="newRunButton" class="icon-button" type="button" title="새 도전" aria-label="새 도전">
+                ↻
+              </button>
+            </div>
           </div>
 
           <div id="codeSlots" class="code-slots" aria-label="Code slots"></div>
@@ -75,6 +78,23 @@
             </div>
             <p id="inputHint" class="hint">현재 라운드 자리수에 맞춰 입력하세요.</p>
           </form>
+
+          <div id="digitPicker" class="digit-picker" hidden>
+            <p class="digit-picker-label">숫자를 선택하세요</p>
+            <div class="digit-picker-row">
+              <button type="button" data-pick="0">0</button>
+              <button type="button" data-pick="1">1</button>
+              <button type="button" data-pick="2">2</button>
+              <button type="button" data-pick="3">3</button>
+              <button type="button" data-pick="4">4</button>
+              <button type="button" data-pick="5">5</button>
+              <button type="button" data-pick="6">6</button>
+              <button type="button" data-pick="7">7</button>
+              <button type="button" data-pick="8">8</button>
+              <button type="button" data-pick="9">9</button>
+              <button type="button" data-pick="cancel">취소</button>
+            </div>
+          </div>
 
           <div class="mobile-keypad" aria-label="모바일 숫자 입력">
             <button type="button" data-keypad="1">1</button>
@@ -103,6 +123,21 @@
             </button>
             <button id="useUpdownButton" type="button" data-testid="use-updown">
               업다운 확인기 <span id="updownCount">0</span>
+            </button>
+            <button id="useCounterButton" type="button">
+              카운터 <span id="counterCount">0</span>
+            </button>
+            <button id="useSignalDetectorButton" type="button">
+              신호 탐색기 <span id="signalDetectorCount">0</span>
+            </button>
+            <button id="useEyeOfTruthButton" type="button">
+              진실의 눈 <span id="eyeOfTruthCount">0</span>
+            </button>
+            <button id="useMouthOfTruthButton" type="button">
+              진실의 입 <span id="mouthOfTruthCount">0</span>
+            </button>
+            <button id="useHandOfTruthButton" type="button">
+              진실의 손 <span id="handOfTruthCount">0</span>
             </button>
           </div>
 
@@ -135,6 +170,22 @@
               <span>재판정권</span>
               <strong id="retryIntel">없음</strong>
             </div>
+            <div>
+              <span>중복 감지기</span>
+              <strong id="duplicateDetectorIntel">미보유</strong>
+            </div>
+            <div>
+              <span>카운터</span>
+              <strong id="counterIntel">없음</strong>
+            </div>
+            <div>
+              <span>신호 탐색기</span>
+              <strong id="signalIntel">없음</strong>
+            </div>
+            <div>
+              <span>진실의 입</span>
+              <strong id="mouthOfTruthIntel">없음</strong>
+            </div>
           </div>
         </div>
 
@@ -163,46 +214,97 @@
             <span>체력 물약</span>
             <strong>30 Gold</strong>
             <small>현재 HP +2</small>
+            <small class="shop-stock"></small>
           </button>
           <button class="shop-item" type="button" data-shop-item="heart">
             <span>심장 확장기</span>
-            <strong>100 Gold</strong>
+            <strong>80 Gold</strong>
             <small>최대 HP +1, 현재 HP +1</small>
+            <small class="shop-stock"></small>
           </button>
           <button class="shop-item" type="button" data-shop-item="eliminator">
             <span>숫자 제거기</span>
             <strong>35 Gold</strong>
             <small>정답에 없는 숫자 2개 제외</small>
+            <small class="shop-stock"></small>
           </button>
           <button class="shop-item" type="button" data-shop-item="locker">
             <span>위치 고정장치</span>
             <strong>70 Gold</strong>
             <small>무작위 1자리 공개</small>
+            <small class="shop-stock"></small>
           </button>
           <button class="shop-item" type="button" data-shop-item="magnifier">
             <span>분석용 돋보기</span>
             <strong>120 Gold</strong>
-            <small>중복 숫자 종류 수 사전 공개</small>
+            <small>중복 숫자 종류 수 공개 (장비)</small>
+            <small class="shop-stock"></small>
           </button>
           <button class="shop-item" type="button" data-shop-item="retry">
             <span>재판정권</span>
             <strong>45 Gold</strong>
             <small>다음 오답 피해 1회 무효</small>
+            <small class="shop-stock"></small>
           </button>
           <button class="shop-item" type="button" data-shop-item="parityScanner">
             <span>자리 스캐너</span>
             <strong>55 Gold</strong>
             <small>무작위 1자리 홀짝 공개</small>
+            <small class="shop-stock"></small>
           </button>
           <button class="shop-item" type="button" data-shop-item="compass">
             <span>황금 나침반</span>
             <strong>150 Gold</strong>
-            <small>영구 보상 +25% (중첩 가능)</small>
+            <small>클리어 보상 +25% (장비, 중첩가능)</small>
+            <small class="shop-stock"></small>
           </button>
           <button class="shop-item" type="button" data-shop-item="updown">
             <span>업다운 확인기</span>
             <strong>50 Gold</strong>
             <small>입력값과 정답 크기 비교</small>
+            <small class="shop-stock"></small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="counter">
+            <span>카운터</span>
+            <strong>120 Gold</strong>
+            <small>선택 숫자가 정답에 몇 개 포함</small>
+            <small class="shop-stock"></small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="duplicateDetector">
+            <span>중복 감지기</span>
+            <strong>80 Gold</strong>
+            <small>최대 반복 숫자 개수 공개 (장비)</small>
+            <small class="shop-stock"></small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="signalDetector">
+            <span>신호 탐색기</span>
+            <strong>80 Gold</strong>
+            <small>선택 숫자 정답 포함 여부</small>
+            <small class="shop-stock"></small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="fullHeal">
+            <span>체력 100% 회복</span>
+            <strong>100 Gold</strong>
+            <small>HP 전체 회복 (게임 중 1회)</small>
+            <small class="shop-stock"></small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="eyeOfTruth">
+            <span>진실의 눈</span>
+            <strong>200 Gold</strong>
+            <small>랜덤 자리 2개 공개 (1회)</small>
+            <small class="shop-stock"></small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="mouthOfTruth">
+            <span>진실의 입</span>
+            <strong>150 Gold</strong>
+            <small>최다 반복 숫자 공개 (1회)</small>
+            <small class="shop-stock"></small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="handOfTruth">
+            <span>진실의 손</span>
+            <strong>200 Gold</strong>
+            <small>선택 숫자 위치 모두 공개 (1회)</small>
+            <small class="shop-stock"></small>
           </button>
         </div>
       </section>

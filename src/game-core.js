@@ -1,14 +1,21 @@
 (function initCore(global) {
   const SHOP_ITEMS = {
-    potion: { name: "체력 물약", price: 30 },
-    heart: { name: "심장 확장기", price: 100 },
-    eliminator: { name: "숫자 제거기", price: 35 },
-    locker: { name: "위치 고정장치", price: 70 },
-    magnifier: { name: "분석용 돋보기", price: 120 },
-    retry: { name: "재판정권", price: 45 },
-    parityScanner: { name: "자리 스캐너", price: 55 },
-    compass: { name: "황금 나침반", price: 150 },
-    updown: { name: "업다운 확인기", price: 50 },
+    potion:            { name: "체력 물약",       price: 30,  shopLimit: 5 },
+    heart:             { name: "심장 확장기",      price: 80,  shopLimit: 2 },
+    eliminator:        { name: "숫자 제거기",      price: 35,  shopLimit: 2 },
+    locker:            { name: "위치 고정장치",     price: 70,  shopLimit: 2 },
+    magnifier:         { name: "분석용 돋보기",     price: 120, shopLimit: 1, minRound: 6,  passive: true },
+    retry:             { name: "재판정권",          price: 45,  shopLimit: 2 },
+    parityScanner:     { name: "자리 스캐너",       price: 55,  shopLimit: 2 },
+    compass:           { name: "황금 나침반",       price: 150, shopLimit: 2, passive: true, stackable: true },
+    updown:            { name: "업다운 확인기",     price: 50,  shopLimit: 2 },
+    counter:           { name: "카운터",            price: 120, shopLimit: 1 },
+    duplicateDetector: { name: "중복 감지기",       price: 80,  shopLimit: 2, minRound: 6,  passive: true },
+    signalDetector:    { name: "신호 탐색기",       price: 80,  shopLimit: 1 },
+    fullHeal:          { name: "체력 100% 회복",    price: 100, shopLimit: 1, gameOnce: true },
+    eyeOfTruth:        { name: "진실의 눈",         price: 200, shopLimit: 1, minRound: 10, gameOnce: true },
+    mouthOfTruth:      { name: "진실의 입",         price: 150, shopLimit: 1, minRound: 10, gameOnce: true },
+    handOfTruth:       { name: "진실의 손",         price: 200, shopLimit: 1, minRound: 10, gameOnce: true },
   };
 
   function getRoundConfig(round) {
@@ -196,6 +203,30 @@
     return open[Math.floor(random() * open.length)];
   }
 
+  function countDigitOccurrences(secret, digit) {
+    return secret.filter((d) => d === digit).length;
+  }
+
+  function getMostRepeatedDigit(secret) {
+    const counts = new Map();
+    secret.forEach((d) => counts.set(d, (counts.get(d) ?? 0) + 1));
+    let maxCount = 0, maxDigit = null;
+    for (const [digit, count] of counts) {
+      if (count > maxCount) { maxCount = count; maxDigit = digit; }
+    }
+    return { digit: maxDigit, count: maxCount };
+  }
+
+  function getMaxRepetitionCount(secret) {
+    const counts = new Map();
+    secret.forEach((d) => counts.set(d, (counts.get(d) ?? 0) + 1));
+    return counts.size > 0 ? Math.max(...counts.values()) : 0;
+  }
+
+  function findAllPositions(secret, digit) {
+    return secret.map((d, i) => (d === digit ? i : -1)).filter((i) => i !== -1);
+  }
+
   const api = {
     SHOP_ITEMS,
     calculateInterest,
@@ -209,6 +240,10 @@
     pickUnscannedParity,
     pickUnlockedPosition,
     validateGuess,
+    countDigitOccurrences,
+    getMostRepeatedDigit,
+    getMaxRepetitionCount,
+    findAllPositions,
   };
 
   global.NumberChallengeCore = api;

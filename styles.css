@@ -676,3 +676,88 @@ input:focus {
     grid-template-columns: 1fr;
   }
 }
+
+/* Shop stock display */
+.shop-stock {
+  color: var(--accent);
+  font-size: 0.72rem;
+  margin-top: 2px;
+}
+
+/* Shop button states */
+.shop-item.too-early {
+  opacity: 0.4;
+  border-color: var(--muted);
+}
+
+/* Digit picker */
+.digit-picker {
+  margin: 14px 0 10px;
+  padding: 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: rgba(63, 208, 180, 0.07);
+}
+
+.digit-picker-label {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.digit-picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.digit-picker-row button {
+  min-height: 38px;
+  min-width: 38px;
+  padding: 0;
+  font-weight: 900;
+}
+
+/* Memo mode */
+.code-slot.memo-target {
+  outline: 2px solid var(--accent);
+}
+
+.code-slot .slot-memo {
+  display: block;
+  font-size: 0.55rem;
+  color: var(--accent);
+  font-weight: 700;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+#memoToggleButton.active {
+  background: var(--accent);
+  color: #07110f;
+  border-color: var(--accent);
+}
+
+.mobile-keypad button .keypad-annotation {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent-strong);
+}
+
+/* Log diff highlighting */
+.diff-digit {
+  color: var(--accent-strong);
+  font-style: normal;
+}
+
+.cmp-digit {
+  color: var(--success);
+  font-style: normal;
+}
+
+.history-item.log-selected {
+  border-color: var(--accent);
+  background: rgba(63, 208, 180, 0.08);
+}
