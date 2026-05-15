@@ -1,6 +1,7 @@
 (function initApp() {
   const {
     SHOP_ITEMS,
+    calculateInterest,
     calculateReward,
     countDuplicateKinds,
     compareGuessDirection,
@@ -165,7 +166,9 @@
           .join(", ")
       : "없음";
     elements.duplicateIntel.textContent = getDuplicateIntel(config);
-    elements.compassIntel.textContent = state.inventory.compass > 0 ? `보상 강화 ${state.inventory.compass}회` : "없음";
+    elements.compassIntel.textContent = state.inventory.compass > 0
+      ? `보상 +${state.inventory.compass * 25}% (${state.inventory.compass}중첩)`
+      : "없음";
     elements.updownIntel.textContent = state.updownIntel;
     elements.retryIntel.textContent = state.inventory.retry > 0 ? `피해 무효 ${state.inventory.retry}회` : "없음";
 
@@ -240,8 +243,11 @@
       return;
     }
     const reward = state.lastReward;
-    const compassText = reward.compassBonus ? ` · 나침반 +${reward.compassBonus}` : "";
-    elements.rewardSummary.textContent = `${reward.bonusLabel}: 기본 ${reward.base} Gold × ${reward.multiplier}${compassText} = ${reward.total} Gold 획득 · HP +${reward.heal}`;
+    const parts = [`기본 ${reward.base} Gold × ${reward.multiplier}`];
+    if (reward.compassBonus > 0) parts.push(`나침반 +${reward.compassBonus}`);
+    if (reward.interest > 0) parts.push(`이자 +${reward.interest}`);
+    const grandTotal = reward.total + (reward.interest ?? 0);
+    elements.rewardSummary.textContent = `${reward.bonusLabel}: ${parts.join(" · ")} = ${grandTotal} Gold 획득 · HP +${reward.heal}`;
   }
 
   function getDuplicateIntel(config) {
@@ -302,18 +308,13 @@
   }
 
   function completeRound() {
-    const reward = calculateReward(state.round, state.attempts);
-    const compassBonus = state.inventory.compass > 0 ? Math.round(reward.total * 0.5) : 0;
+    const interest = calculateInterest(state.gold);
+    const reward = calculateReward(state.round, state.attempts, state.inventory.compass);
     const heal = reward.bonusLabel === "Perfect" ? 2 : 1;
     const beforeHp = state.hp;
-    if (state.inventory.compass > 0) {
-      state.inventory.compass -= 1;
-    }
-    reward.total += compassBonus;
-    reward.compassBonus = compassBonus;
-    state.gold += reward.total;
+    state.gold += reward.total + interest;
     state.hp = Math.min(state.maxHp, state.hp + heal);
-    state.lastReward = { ...reward, heal: state.hp - beforeHp };
+    state.lastReward = { ...reward, heal: state.hp - beforeHp, interest };
     state.phase = "shop";
     setHint(`정답입니다. HP가 ${state.hp - beforeHp} 회복되었습니다.`, "success");
     render();
