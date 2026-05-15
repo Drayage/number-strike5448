@@ -15,6 +15,24 @@
   } = window.NumberChallengeCore;
 
   const SAVE_KEY = "number-challenge-save";
+  const RECORD_KEY = "number-challenge-records";
+
+  function loadRecords() {
+    try {
+      return JSON.parse(localStorage.getItem(RECORD_KEY)) ?? { bestRound: 0 };
+    } catch {
+      return { bestRound: 0 };
+    }
+  }
+
+  let records = loadRecords();
+
+  function updateBestRound(round) {
+    if (round > records.bestRound) {
+      records.bestRound = round;
+      localStorage.setItem(RECORD_KEY, JSON.stringify(records));
+    }
+  }
 
   const initialState = () => ({
     round: 1,
@@ -39,6 +57,7 @@
     updownIntel: "없음",
     history: [],
     lastReward: null,
+    shopBought: {},
   });
 
   let state = loadState() ?? initialState();
@@ -82,6 +101,7 @@
     overlayTitle: $("#overlayTitle"),
     overlayBody: $("#overlayBody"),
     overlayButton: $("#overlayButton"),
+    bestRoundLabel: $("#bestRoundLabel"),
   };
 
   function loadState() {
@@ -107,6 +127,7 @@
       parityIntel: saved.parityIntel ?? [],
       updownIntel: saved.updownIntel ?? "없음",
       history: saved.history ?? [],
+      shopBought: saved.shopBought ?? {},
     };
   }
 
@@ -171,6 +192,7 @@
       : "없음";
     elements.updownIntel.textContent = state.updownIntel;
     elements.retryIntel.textContent = state.inventory.retry > 0 ? `피해 무효 ${state.inventory.retry}회` : "없음";
+    elements.bestRoundLabel.textContent = records.bestRound > 0 ? `${records.bestRound}라운드` : "—";
 
     renderCodeSlots(config);
     renderHistory();
@@ -228,13 +250,25 @@
     return "HP -1";
   }
 
+  function getItemPrice(key) {
+    const base = SHOP_ITEMS[key].price;
+    const count = typeof state.inventory[key] === "number" ? state.inventory[key] : 0;
+    return count > 0 ? Math.round(base * Math.pow(1.4, count)) : base;
+  }
+
   function renderShopButtons() {
     document.querySelectorAll("[data-shop-item]").forEach((button) => {
       const key = button.dataset.shopItem;
-      const item = SHOP_ITEMS[key];
+      const price = getItemPrice(key);
       const soldOut = key === "magnifier" && state.inventory.magnifier;
-      button.disabled = state.gold < item.price || soldOut;
+      const shopMaxed = (state.shopBought[key] ?? 0) >= 2;
+
+      button.disabled = state.gold < price || soldOut || shopMaxed;
       button.classList.toggle("sold-out", soldOut);
+      button.classList.toggle("shop-maxed", shopMaxed);
+
+      const priceEl = button.querySelector("strong");
+      if (priceEl) priceEl.textContent = shopMaxed ? "이번 구매 완료" : `${price} Gold`;
     });
   }
 
@@ -324,7 +358,9 @@
     state.hp = Math.min(state.maxHp, state.hp + heal);
     state.lastReward = { ...reward, heal: state.hp - beforeHp, interest };
     state.phase = "shop";
+    state.shopBought = {};
     setHint(`정답입니다. HP가 ${state.hp - beforeHp} 회복되었습니다.`, "success");
+    if (state.round === 15) triggerBossClearEffect();
     render();
     setTimeout(() => elements.shopPanel.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   }
@@ -332,6 +368,7 @@
   function endRun() {
     state.hp = 0;
     state.phase = "gameOver";
+    updateBestRound(state.round);
     clearSave();
     showOverlay(
       "Game Over",
@@ -355,6 +392,7 @@
   function startNextRound() {
     const nextRound = state.round + 1;
     state.round = nextRound;
+    updateBestRound(nextRound);
     state.phase = "playing";
     state.attempts = 0;
     state.secret = generateCode(getRoundConfig(nextRound));
@@ -377,15 +415,13 @@
 
   function buyItem(key) {
     const item = SHOP_ITEMS[key];
-    if (!item || state.gold < item.price) {
-      return;
-    }
+    const price = getItemPrice(key);
+    if (!item || state.gold < price) return;
+    if (key === "magnifier" && state.inventory.magnifier) return;
+    if ((state.shopBought[key] ?? 0) >= 2) return;
 
-    if (key === "magnifier" && state.inventory.magnifier) {
-      return;
-    }
-
-    state.gold -= item.price;
+    state.gold -= price;
+    state.shopBought[key] = (state.shopBought[key] ?? 0) + 1;
 
     if (key === "potion") {
       state.hp = Math.min(state.maxHp, state.hp + 2);
@@ -506,6 +542,36 @@
     if (/^\d$/.test(value) && elements.guessInput.value.length < config.digits) {
       elements.guessInput.value += value;
     }
+  }
+
+  function triggerBossClearEffect() {
+    const flash = document.createElement("div");
+    flash.className = "boss-flash";
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 900);
+
+    const container = document.createElement("div");
+    container.className = "boss-clear-fx";
+    document.body.appendChild(container);
+
+    const colors = ["#f2c14e", "#f2c14e", "#3fd0b4", "#ffffff", "#ef6262"];
+    const count = 72;
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement("div");
+      p.className = "boss-particle";
+      const angle = (i / count) * 360;
+      const dist = 25 + Math.random() * 55;
+      p.style.cssText = [
+        `--tx:${(Math.sin((angle * Math.PI) / 180) * dist).toFixed(1)}vmin`,
+        `--ty:${(-Math.cos((angle * Math.PI) / 180) * dist).toFixed(1)}vmin`,
+        `--color:${colors[i % colors.length]}`,
+        `--delay:${(Math.random() * 0.25).toFixed(2)}s`,
+        `--size:${(3 + Math.random() * 7).toFixed(1)}px`,
+      ].join(";");
+      container.appendChild(p);
+    }
+
+    setTimeout(() => container.remove(), 2600);
   }
 
   function renderKeypad() {
