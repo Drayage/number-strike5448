@@ -239,6 +239,12 @@ h2 {
   font-size: 0.95rem;
 }
 
+.mobile-keypad button.eliminated {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(239, 98, 98, 0.12);
+}
+
 .input-row {
   display: grid;
   grid-template-columns: 1fr 92px;

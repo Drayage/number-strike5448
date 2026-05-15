@@ -176,6 +176,7 @@
     renderHistory();
     renderShopButtons();
     renderReward();
+    renderKeypad();
     syncInputLock();
     saveState();
   }
@@ -298,8 +299,15 @@
       return;
     }
 
+    let round1DirText = "";
+    if (state.round === 1) {
+      const dir = compareGuessDirection(state.secret, [...guessValue]);
+      state.updownIntel = `${guessValue}: ${dir}`;
+      round1DirText = dir === "UP" ? " 정답이 더 큽니다." : " 정답이 더 작습니다.";
+    }
+
     setHint(
-      `${result.strikes} Strike, ${result.balls} Ball. ${
+      `${result.strikes} Strike, ${result.balls} Ball.${round1DirText} ${
         protectedByRetry ? "재판정권으로 피해를 막았습니다." : "오답으로 HP가 1 감소했습니다."
       }`,
       protectedByRetry ? "warn" : "danger",
@@ -318,6 +326,7 @@
     state.phase = "shop";
     setHint(`정답입니다. HP가 ${state.hp - beforeHp} 회복되었습니다.`, "success");
     render();
+    setTimeout(() => elements.shopPanel.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   }
 
   function endRun() {
@@ -363,6 +372,7 @@
 
     render();
     elements.guessInput.focus();
+    setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 60);
   }
 
   function buyItem(key) {
@@ -397,15 +407,17 @@
       return;
     }
 
-    const picked = pickAbsentDigits(state.secret, state.eliminated);
+    const picked = pickAbsentDigits(state.secret, []);
     if (picked.length === 0) {
       setHint("더 이상 제외할 수 있는 숫자가 없습니다.", "warn");
       return;
     }
 
     state.inventory.eliminator -= 1;
-    state.eliminated.push(...picked);
-    setHint(`정답에 없는 숫자 ${picked.join(", ")} 제외.`, "success");
+    const newOnes = picked.filter((d) => !state.eliminated.includes(d));
+    state.eliminated.push(...newOnes);
+    const suffix = newOnes.length < picked.length ? " (일부 재확인)" : "";
+    setHint(`정답에 없는 숫자 ${picked.join(", ")} 제외.${suffix}`, "success");
     render();
   }
 
@@ -494,6 +506,15 @@
     if (/^\d$/.test(value) && elements.guessInput.value.length < config.digits) {
       elements.guessInput.value += value;
     }
+  }
+
+  function renderKeypad() {
+    document.querySelectorAll("[data-keypad]").forEach((button) => {
+      const val = button.dataset.keypad;
+      if (/^\d$/.test(val)) {
+        button.classList.toggle("eliminated", state.eliminated.includes(val));
+      }
+    });
   }
 
   function syncInputLock() {
