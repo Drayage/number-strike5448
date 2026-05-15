@@ -31,17 +31,17 @@ assert.equal(getRoundConfig(18).digits, 12);
 assert.equal(getRoundConfig(19).digits, 13);
 
 assert.deepEqual(calculateReward(4, 3), {
-  base: 40,
+  base: 120,
   bonusLabel: "Perfect",
   multiplier: 2,
-  total: 80,
+  total: 240,
 });
 
 assert.deepEqual(calculateReward(10, 6), {
-  base: 100,
+  base: 300,
   bonusLabel: "Good",
   multiplier: 1.2,
-  total: 120,
+  total: 360,
 });
 
 assert.equal(countDuplicateKinds(["1", "1", "2", "3", "3", "3"]), 2);

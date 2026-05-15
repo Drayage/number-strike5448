@@ -110,7 +110,7 @@
   }
 
   function calculateReward(round, attempts) {
-    const base = round * 10;
+    const base = round * 30;
     if (attempts <= 3) {
       return { base, bonusLabel: "Perfect", multiplier: 2, total: base * 2 };
     }
