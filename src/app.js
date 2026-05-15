@@ -15,6 +15,24 @@
   } = window.NumberChallengeCore;
 
   const SAVE_KEY = "number-challenge-save";
+  const RECORD_KEY = "number-challenge-records";
+
+  function loadRecords() {
+    try {
+      return JSON.parse(localStorage.getItem(RECORD_KEY)) ?? { bestRound: 0 };
+    } catch {
+      return { bestRound: 0 };
+    }
+  }
+
+  let records = loadRecords();
+
+  function updateBestRound(round) {
+    if (round > records.bestRound) {
+      records.bestRound = round;
+      localStorage.setItem(RECORD_KEY, JSON.stringify(records));
+    }
+  }
 
   const initialState = () => ({
     round: 1,
@@ -83,6 +101,7 @@
     overlayTitle: $("#overlayTitle"),
     overlayBody: $("#overlayBody"),
     overlayButton: $("#overlayButton"),
+    bestRoundLabel: $("#bestRoundLabel"),
   };
 
   function loadState() {
@@ -173,6 +192,7 @@
       : "없음";
     elements.updownIntel.textContent = state.updownIntel;
     elements.retryIntel.textContent = state.inventory.retry > 0 ? `피해 무효 ${state.inventory.retry}회` : "없음";
+    elements.bestRoundLabel.textContent = records.bestRound > 0 ? `${records.bestRound}라운드` : "—";
 
     renderCodeSlots(config);
     renderHistory();
@@ -340,6 +360,7 @@
     state.phase = "shop";
     state.shopBought = {};
     setHint(`정답입니다. HP가 ${state.hp - beforeHp} 회복되었습니다.`, "success");
+    if (state.round === 15) triggerBossClearEffect();
     render();
     setTimeout(() => elements.shopPanel.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   }
@@ -347,6 +368,7 @@
   function endRun() {
     state.hp = 0;
     state.phase = "gameOver";
+    updateBestRound(state.round);
     clearSave();
     showOverlay(
       "Game Over",
@@ -370,6 +392,7 @@
   function startNextRound() {
     const nextRound = state.round + 1;
     state.round = nextRound;
+    updateBestRound(nextRound);
     state.phase = "playing";
     state.attempts = 0;
     state.secret = generateCode(getRoundConfig(nextRound));
@@ -519,6 +542,36 @@
     if (/^\d$/.test(value) && elements.guessInput.value.length < config.digits) {
       elements.guessInput.value += value;
     }
+  }
+
+  function triggerBossClearEffect() {
+    const flash = document.createElement("div");
+    flash.className = "boss-flash";
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 900);
+
+    const container = document.createElement("div");
+    container.className = "boss-clear-fx";
+    document.body.appendChild(container);
+
+    const colors = ["#f2c14e", "#f2c14e", "#3fd0b4", "#ffffff", "#ef6262"];
+    const count = 72;
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement("div");
+      p.className = "boss-particle";
+      const angle = (i / count) * 360;
+      const dist = 25 + Math.random() * 55;
+      p.style.cssText = [
+        `--tx:${(Math.sin((angle * Math.PI) / 180) * dist).toFixed(1)}vmin`,
+        `--ty:${(-Math.cos((angle * Math.PI) / 180) * dist).toFixed(1)}vmin`,
+        `--color:${colors[i % colors.length]}`,
+        `--delay:${(Math.random() * 0.25).toFixed(2)}s`,
+        `--size:${(3 + Math.random() * 7).toFixed(1)}px`,
+      ].join(";");
+      container.appendChild(p);
+    }
+
+    setTimeout(() => container.remove(), 2600);
   }
 
   function renderKeypad() {

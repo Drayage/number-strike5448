@@ -87,6 +87,16 @@ button:disabled {
   text-transform: uppercase;
 }
 
+.record-line {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.record-line strong {
+  color: var(--accent-strong);
+}
+
 h1,
 h2 {
   margin: 0;
@@ -466,6 +476,45 @@ input:focus {
 
 [hidden] {
   display: none !important;
+}
+
+.boss-flash {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, #f2c14e88 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 200;
+  animation: boss-flash-fade 0.9s ease-out forwards;
+}
+
+@keyframes boss-flash-fade {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.boss-clear-fx {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 199;
+  overflow: hidden;
+}
+
+.boss-particle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--size, 6px);
+  height: var(--size, 6px);
+  border-radius: 50%;
+  background: var(--color, #f2c14e);
+  animation: boss-particle-fly 2.2s ease-out var(--delay, 0s) forwards;
+}
+
+@keyframes boss-particle-fly {
+  0% { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0); opacity: 0; }
 }
 
 @media (max-width: 880px) {
