@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Number Challenge</title>
+    <meta name="theme-color" content="#101012" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Number Challenge" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar" aria-label="Run status">
+        <div>
+          <p class="eyebrow">Number Challenge</p>
+          <h1>넘버 챌린지</h1>
+        </div>
+        <div class="status-grid">
+          <div class="status-tile">
+            <span>Round</span>
+            <strong id="roundLabel">1</strong>
+          </div>
+          <div class="status-tile">
+            <span>HP</span>
+            <strong id="hpLabel">10 / 10</strong>
+          </div>
+          <div class="status-tile">
+            <span>Gold</span>
+            <strong id="goldLabel">0</strong>
+          </div>
+          <div class="status-tile">
+            <span>Attempts</span>
+            <strong id="attemptLabel">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="game-board" aria-label="Game board">
+        <div class="code-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Target Code</p>
+              <h2 id="phaseLabel">Phase 1</h2>
+            </div>
+            <button id="newRunButton" class="icon-button" type="button" title="새 도전" aria-label="새 도전">
+              ↻
+            </button>
+          </div>
+
+          <div id="codeSlots" class="code-slots" aria-label="Code slots"></div>
+
+          <div class="round-meta">
+            <span id="digitsLabel">1자리</span>
+            <span id="duplicateLabel">중복 불가</span>
+            <span id="modeLabel">정규 모드</span>
+          </div>
+
+          <form id="guessForm" class="guess-form">
+            <label for="guessInput">추측 입력</label>
+            <div class="input-row">
+              <input
+                id="guessInput"
+                name="guess"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="숫자를 입력"
+                data-testid="guess-input"
+              />
+              <button type="submit" data-testid="guess-submit">판정</button>
+            </div>
+            <p id="inputHint" class="hint">현재 라운드 자리수에 맞춰 입력하세요.</p>
+          </form>
+
+          <div class="mobile-keypad" aria-label="모바일 숫자 입력">
+            <button type="button" data-keypad="1">1</button>
+            <button type="button" data-keypad="2">2</button>
+            <button type="button" data-keypad="3">3</button>
+            <button type="button" data-keypad="4">4</button>
+            <button type="button" data-keypad="5">5</button>
+            <button type="button" data-keypad="6">6</button>
+            <button type="button" data-keypad="7">7</button>
+            <button type="button" data-keypad="8">8</button>
+            <button type="button" data-keypad="9">9</button>
+            <button type="button" data-keypad="back">⌫</button>
+            <button type="button" data-keypad="0">0</button>
+            <button type="button" data-keypad="enter">판정</button>
+          </div>
+
+          <div class="quick-actions" aria-label="Items">
+            <button id="useEliminatorButton" type="button" data-testid="use-eliminator">
+              숫자 제거기 <span id="eliminatorCount">0</span>
+            </button>
+            <button id="useLockerButton" type="button" data-testid="use-locker">
+              위치 고정장치 <span id="lockerCount">0</span>
+            </button>
+          </div>
+
+          <div class="intel">
+            <div>
+              <span>제외 숫자</span>
+              <strong id="eliminatedDigits">없음</strong>
+            </div>
+            <div>
+              <span>고정 정보</span>
+              <strong id="lockedDigits">없음</strong>
+            </div>
+            <div>
+              <span>분석 돋보기</span>
+              <strong id="duplicateIntel">미보유</strong>
+            </div>
+          </div>
+        </div>
+
+        <aside class="log-panel" aria-label="Round log">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Combat Log</p>
+              <h2>추론 기록</h2>
+            </div>
+          </div>
+          <ol id="historyList" class="history-list"></ol>
+        </aside>
+      </section>
+
+      <section id="shopPanel" class="shop-panel" aria-label="Shop" hidden>
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Shop</p>
+            <h2 id="shopTitle">상점 정비</h2>
+          </div>
+          <button id="nextRoundButton" type="button" data-testid="next-round">다음 라운드</button>
+        </div>
+        <p id="rewardSummary" class="reward-summary"></p>
+        <div class="shop-grid">
+          <button class="shop-item" type="button" data-shop-item="potion">
+            <span>체력 물약</span>
+            <strong>30 Gold</strong>
+            <small>현재 HP +2</small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="heart">
+            <span>심장 확장기</span>
+            <strong>100 Gold</strong>
+            <small>최대 HP +1, 현재 HP +1</small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="eliminator">
+            <span>숫자 제거기</span>
+            <strong>40 Gold</strong>
+            <small>정답에 없는 숫자 2개 제외</small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="locker">
+            <span>위치 고정장치</span>
+            <strong>60 Gold</strong>
+            <small>무작위 1자리 공개</small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="magnifier">
+            <span>분석용 돋보기</span>
+            <strong>150 Gold</strong>
+            <small>중복 숫자 종류 수 사전 공개</small>
+          </button>
+        </div>
+      </section>
+
+      <section id="overlay" class="overlay" hidden>
+        <div class="modal">
+          <p class="eyebrow" id="overlayEyebrow">Game Over</p>
+          <h2 id="overlayTitle">도전 종료</h2>
+          <p id="overlayBody"></p>
+          <button id="overlayButton" type="button">새 도전</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="./src/game-core.js"></script>
+    <script src="./src/app.js"></script>
+    <script>
+      if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+        navigator.serviceWorker.register("./sw.js");
+      }
+    </script>
+  </body>
+</html>
