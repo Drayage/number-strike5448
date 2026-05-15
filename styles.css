@@ -429,6 +429,11 @@ input:focus {
   border-color: var(--success);
 }
 
+.shop-item.shop-maxed {
+  border-color: var(--accent);
+  opacity: 0.55;
+}
+
 .overlay {
   position: fixed;
   inset: 0;

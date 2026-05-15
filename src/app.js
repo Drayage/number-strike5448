@@ -39,6 +39,7 @@
     updownIntel: "없음",
     history: [],
     lastReward: null,
+    shopBought: {},
   });
 
   let state = loadState() ?? initialState();
@@ -107,6 +108,7 @@
       parityIntel: saved.parityIntel ?? [],
       updownIntel: saved.updownIntel ?? "없음",
       history: saved.history ?? [],
+      shopBought: saved.shopBought ?? {},
     };
   }
 
@@ -228,13 +230,25 @@
     return "HP -1";
   }
 
+  function getItemPrice(key) {
+    const base = SHOP_ITEMS[key].price;
+    const count = typeof state.inventory[key] === "number" ? state.inventory[key] : 0;
+    return count > 0 ? Math.round(base * Math.pow(1.4, count)) : base;
+  }
+
   function renderShopButtons() {
     document.querySelectorAll("[data-shop-item]").forEach((button) => {
       const key = button.dataset.shopItem;
-      const item = SHOP_ITEMS[key];
+      const price = getItemPrice(key);
       const soldOut = key === "magnifier" && state.inventory.magnifier;
-      button.disabled = state.gold < item.price || soldOut;
+      const shopMaxed = (state.shopBought[key] ?? 0) >= 2;
+
+      button.disabled = state.gold < price || soldOut || shopMaxed;
       button.classList.toggle("sold-out", soldOut);
+      button.classList.toggle("shop-maxed", shopMaxed);
+
+      const priceEl = button.querySelector("strong");
+      if (priceEl) priceEl.textContent = shopMaxed ? "이번 구매 완료" : `${price} Gold`;
     });
   }
 
@@ -324,6 +338,7 @@
     state.hp = Math.min(state.maxHp, state.hp + heal);
     state.lastReward = { ...reward, heal: state.hp - beforeHp, interest };
     state.phase = "shop";
+    state.shopBought = {};
     setHint(`정답입니다. HP가 ${state.hp - beforeHp} 회복되었습니다.`, "success");
     render();
     setTimeout(() => elements.shopPanel.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
@@ -377,15 +392,13 @@
 
   function buyItem(key) {
     const item = SHOP_ITEMS[key];
-    if (!item || state.gold < item.price) {
-      return;
-    }
+    const price = getItemPrice(key);
+    if (!item || state.gold < price) return;
+    if (key === "magnifier" && state.inventory.magnifier) return;
+    if ((state.shopBought[key] ?? 0) >= 2) return;
 
-    if (key === "magnifier" && state.inventory.magnifier) {
-      return;
-    }
-
-    state.gold -= item.price;
+    state.gold -= price;
+    state.shopBought[key] = (state.shopBought[key] ?? 0) + 1;
 
     if (key === "potion") {
       state.hp = Math.min(state.maxHp, state.hp + 2);
