@@ -2,13 +2,13 @@
   const SHOP_ITEMS = {
     potion: { name: "체력 물약", price: 30 },
     heart: { name: "심장 확장기", price: 100 },
-    eliminator: { name: "숫자 제거기", price: 40 },
-    locker: { name: "위치 고정장치", price: 60 },
-    magnifier: { name: "분석용 돋보기", price: 150 },
-    retry: { name: "재판정권", price: 50 },
-    parityScanner: { name: "자리 스캐너", price: 70 },
-    compass: { name: "황금 나침반", price: 130 },
-    updown: { name: "업다운 확인기", price: 55 },
+    eliminator: { name: "숫자 제거기", price: 35 },
+    locker: { name: "위치 고정장치", price: 70 },
+    magnifier: { name: "분석용 돋보기", price: 120 },
+    retry: { name: "재판정권", price: 45 },
+    parityScanner: { name: "자리 스캐너", price: 55 },
+    compass: { name: "황금 나침반", price: 150 },
+    updown: { name: "업다운 확인기", price: 50 },
   };
 
   function getRoundConfig(round) {
@@ -126,18 +126,24 @@
     return "";
   }
 
-  function calculateReward(round, attempts) {
+  function calculateReward(round, attempts, compassStacks = 0) {
     const base = round * 30;
+    let bonusLabel, multiplier, total;
     if (attempts <= 3) {
-      return { base, bonusLabel: "Perfect", multiplier: 2, total: base * 2 };
+      bonusLabel = "Perfect"; multiplier = 2; total = base * 2;
+    } else if (attempts <= 5) {
+      bonusLabel = "Great"; multiplier = 1.5; total = Math.round(base * 1.5);
+    } else if (attempts <= 7) {
+      bonusLabel = "Good"; multiplier = 1.2; total = Math.round(base * 1.2);
+    } else {
+      bonusLabel = "Normal"; multiplier = 1; total = base;
     }
-    if (attempts <= 5) {
-      return { base, bonusLabel: "Great", multiplier: 1.5, total: Math.round(base * 1.5) };
-    }
-    if (attempts <= 7) {
-      return { base, bonusLabel: "Good", multiplier: 1.2, total: Math.round(base * 1.2) };
-    }
-    return { base, bonusLabel: "Normal", multiplier: 1, total: base };
+    const compassBonus = compassStacks > 0 ? Math.round(total * compassStacks * 0.25) : 0;
+    return { base, bonusLabel, multiplier, total: total + compassBonus, compassBonus };
+  }
+
+  function calculateInterest(gold, rate = 0.05) {
+    return Math.floor(gold * rate);
   }
 
   function countDuplicateKinds(secret) {
@@ -192,6 +198,7 @@
 
   const api = {
     SHOP_ITEMS,
+    calculateInterest,
     calculateReward,
     countDuplicateKinds,
     compareGuessDirection,

@@ -40,6 +40,7 @@ assert.deepEqual(calculateReward(4, 3), {
   bonusLabel: "Perfect",
   multiplier: 2,
   total: 240,
+  compassBonus: 0,
 });
 
 assert.deepEqual(calculateReward(10, 6), {
@@ -47,6 +48,15 @@ assert.deepEqual(calculateReward(10, 6), {
   bonusLabel: "Good",
   multiplier: 1.2,
   total: 360,
+  compassBonus: 0,
+});
+
+assert.deepEqual(calculateReward(10, 6, 2), {
+  base: 300,
+  bonusLabel: "Good",
+  multiplier: 1.2,
+  total: 540,
+  compassBonus: 180,
 });
 
 assert.equal(countDuplicateKinds(["1", "1", "2", "3", "3", "3"]), 2);
