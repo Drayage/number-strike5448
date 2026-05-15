@@ -3,10 +3,12 @@
     SHOP_ITEMS,
     calculateReward,
     countDuplicateKinds,
+    compareGuessDirection,
     generateCode,
     getRoundConfig,
     judgeGuess,
     pickAbsentDigits,
+    pickUnscannedParity,
     pickUnlockedPosition,
     validateGuess,
   } = window.NumberChallengeCore;
@@ -23,11 +25,17 @@
       eliminator: 0,
       locker: 0,
       magnifier: false,
+      retry: 0,
+      parityScanner: 0,
+      compass: 0,
+      updown: 0,
     },
     phase: "playing",
     secret: [],
     eliminated: [],
     locked: [],
+    parityIntel: [],
+    updownIntel: "없음",
     history: [],
     lastReward: null,
   });
@@ -55,11 +63,19 @@
     newRunButton: $("#newRunButton"),
     useEliminatorButton: $("#useEliminatorButton"),
     useLockerButton: $("#useLockerButton"),
+    useScannerButton: $("#useScannerButton"),
+    useUpdownButton: $("#useUpdownButton"),
     eliminatorCount: $("#eliminatorCount"),
     lockerCount: $("#lockerCount"),
+    scannerCount: $("#scannerCount"),
+    updownCount: $("#updownCount"),
     eliminatedDigits: $("#eliminatedDigits"),
     lockedDigits: $("#lockedDigits"),
+    parityIntel: $("#parityIntel"),
     duplicateIntel: $("#duplicateIntel"),
+    compassIntel: $("#compassIntel"),
+    updownIntel: $("#updownIntel"),
+    retryIntel: $("#retryIntel"),
     overlay: $("#overlay"),
     overlayEyebrow: $("#overlayEyebrow"),
     overlayTitle: $("#overlayTitle"),
@@ -73,10 +89,24 @@
       if (!saved || !Array.isArray(saved.secret) || saved.secret.length === 0) {
         return null;
       }
-      return saved;
+      return normalizeState(saved);
     } catch {
       return null;
     }
+  }
+
+  function normalizeState(saved) {
+    const fresh = initialState();
+    return {
+      ...fresh,
+      ...saved,
+      inventory: { ...fresh.inventory, ...(saved.inventory ?? {}) },
+      eliminated: saved.eliminated ?? [],
+      locked: saved.locked ?? [],
+      parityIntel: saved.parityIntel ?? [],
+      updownIntel: saved.updownIntel ?? "없음",
+      history: saved.history ?? [],
+    };
   }
 
   function saveState() {
@@ -113,8 +143,12 @@
     elements.shopPanel.hidden = !isShop;
     elements.eliminatorCount.textContent = state.inventory.eliminator;
     elements.lockerCount.textContent = state.inventory.locker;
+    elements.scannerCount.textContent = state.inventory.parityScanner;
+    elements.updownCount.textContent = state.inventory.updown;
     elements.useEliminatorButton.disabled = state.inventory.eliminator <= 0 || isShop || isGameOver;
     elements.useLockerButton.disabled = state.inventory.locker <= 0 || isShop || isGameOver;
+    elements.useScannerButton.disabled = state.inventory.parityScanner <= 0 || isShop || isGameOver;
+    elements.useUpdownButton.disabled = state.inventory.updown <= 0 || isShop || isGameOver;
     elements.eliminatedDigits.textContent = state.eliminated.length ? state.eliminated.join(", ") : "없음";
     elements.lockedDigits.textContent = state.locked.length
       ? state.locked
@@ -123,7 +157,17 @@
           .map((entry) => `${entry.index + 1}번째=${entry.digit}`)
           .join(", ")
       : "없음";
+    elements.parityIntel.textContent = state.parityIntel.length
+      ? state.parityIntel
+          .slice()
+          .sort((a, b) => a.index - b.index)
+          .map((entry) => `${entry.index + 1}번째=${entry.parity}`)
+          .join(", ")
+      : "없음";
     elements.duplicateIntel.textContent = getDuplicateIntel(config);
+    elements.compassIntel.textContent = state.inventory.compass > 0 ? `보상 강화 ${state.inventory.compass}회` : "없음";
+    elements.updownIntel.textContent = state.updownIntel;
+    elements.retryIntel.textContent = state.inventory.retry > 0 ? `피해 무효 ${state.inventory.retry}회` : "없음";
 
     renderCodeSlots(config);
     renderHistory();
@@ -164,10 +208,20 @@
       item.innerHTML = `
         <span>${entry.guess}</span>
         <strong>${entry.strikes}S ${entry.balls}B</strong>
-        <small>${entry.solved ? "Clear" : "HP -1"}</small>
+        <small>${getHistoryNote(entry)}</small>
       `;
       elements.historyList.append(item);
     });
+  }
+
+  function getHistoryNote(entry) {
+    if (entry.solved) {
+      return "Clear";
+    }
+    if (entry.protected) {
+      return "무효";
+    }
+    return "HP -1";
   }
 
   function renderShopButtons() {
@@ -186,7 +240,8 @@
       return;
     }
     const reward = state.lastReward;
-    elements.rewardSummary.textContent = `${reward.bonusLabel}: 기본 ${reward.base} Gold × ${reward.multiplier} = ${reward.total} Gold 획득 · HP +${reward.heal}`;
+    const compassText = reward.compassBonus ? ` · 나침반 +${reward.compassBonus}` : "";
+    elements.rewardSummary.textContent = `${reward.bonusLabel}: 기본 ${reward.base} Gold × ${reward.multiplier}${compassText} = ${reward.total} Gold 획득 · HP +${reward.heal}`;
   }
 
   function getDuplicateIntel(config) {
@@ -217,28 +272,45 @@
 
     const result = judgeGuess(state.secret, [...guessValue]);
     state.attempts += 1;
-    state.history.push({ guess: guessValue, ...result });
     elements.guessInput.value = "";
 
     if (result.solved) {
+      state.history.push({ guess: guessValue, ...result });
       completeRound();
       return;
     }
 
-    state.hp -= 1;
+    const protectedByRetry = state.inventory.retry > 0;
+    if (protectedByRetry) {
+      state.inventory.retry -= 1;
+    } else {
+      state.hp -= 1;
+    }
+    state.history.push({ guess: guessValue, ...result, protected: protectedByRetry });
     if (state.hp <= 0) {
       endRun();
       return;
     }
 
-    setHint(`${result.strikes} Strike, ${result.balls} Ball. 오답으로 HP가 1 감소했습니다.`, "danger");
+    setHint(
+      `${result.strikes} Strike, ${result.balls} Ball. ${
+        protectedByRetry ? "재판정권으로 피해를 막았습니다." : "오답으로 HP가 1 감소했습니다."
+      }`,
+      protectedByRetry ? "warn" : "danger",
+    );
     render();
   }
 
   function completeRound() {
     const reward = calculateReward(state.round, state.attempts);
+    const compassBonus = state.inventory.compass > 0 ? Math.round(reward.total * 0.5) : 0;
     const heal = reward.bonusLabel === "Perfect" ? 2 : 1;
     const beforeHp = state.hp;
+    if (state.inventory.compass > 0) {
+      state.inventory.compass -= 1;
+    }
+    reward.total += compassBonus;
+    reward.compassBonus = compassBonus;
     state.gold += reward.total;
     state.hp = Math.min(state.maxHp, state.hp + heal);
     state.lastReward = { ...reward, heal: state.hp - beforeHp };
@@ -278,6 +350,8 @@
     state.secret = generateCode(getRoundConfig(nextRound));
     state.eliminated = [];
     state.locked = [];
+    state.parityIntel = [];
+    state.updownIntel = "없음";
     state.history = [];
     state.lastReward = null;
     setHint("새 코드가 생성되었습니다.", "normal");
@@ -351,6 +425,45 @@
     render();
   }
 
+  function useScanner() {
+    if (state.inventory.parityScanner <= 0 || state.phase !== "playing") {
+      return;
+    }
+
+    const scanned = pickUnscannedParity(state.secret, state.parityIntel);
+    if (!scanned) {
+      setHint("모든 자리의 홀짝 정보가 이미 공개되었습니다.", "warn");
+      return;
+    }
+
+    state.inventory.parityScanner -= 1;
+    state.parityIntel.push(scanned);
+    setHint(`${scanned.index + 1}번째 자리는 ${scanned.parity}입니다.`, "success");
+    render();
+  }
+
+  function useUpdown() {
+    if (state.inventory.updown <= 0 || state.phase !== "playing") {
+      return;
+    }
+
+    const config = getRoundConfig(state.round);
+    const guessValue = elements.guessInput.value.trim();
+    const error = validateGuess(guessValue, config);
+    if (error) {
+      setHint(`업다운 확인: ${error}`, "warn");
+      return;
+    }
+
+    const direction = compareGuessDirection(state.secret, [...guessValue]);
+    const directionText =
+      direction === "UP" ? "정답이 더 큽니다" : direction === "DOWN" ? "정답이 더 작습니다" : "정답과 같습니다";
+    state.inventory.updown -= 1;
+    state.updownIntel = `${guessValue}: ${direction}`;
+    setHint(`업다운 확인 결과: ${directionText}.`, "success");
+    render();
+  }
+
   function newRun() {
     state = initialState();
     state.secret = generateCode(getRoundConfig(1));
@@ -392,6 +505,8 @@
   elements.overlayButton.addEventListener("click", newRun);
   elements.useEliminatorButton.addEventListener("click", useEliminator);
   elements.useLockerButton.addEventListener("click", useLocker);
+  elements.useScannerButton.addEventListener("click", useScanner);
+  elements.useUpdownButton.addEventListener("click", useUpdown);
   document.querySelectorAll("[data-shop-item]").forEach((button) => {
     button.addEventListener("click", () => buyItem(button.dataset.shopItem));
   });

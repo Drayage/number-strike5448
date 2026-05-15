@@ -5,6 +5,10 @@
     eliminator: { name: "숫자 제거기", price: 40 },
     locker: { name: "위치 고정장치", price: 60 },
     magnifier: { name: "분석용 돋보기", price: 150 },
+    retry: { name: "재판정권", price: 50 },
+    parityScanner: { name: "자리 스캐너", price: 70 },
+    compass: { name: "황금 나침반", price: 130 },
+    updown: { name: "업다운 확인기", price: 55 },
   };
 
   function getRoundConfig(round) {
@@ -93,6 +97,19 @@
     return { strikes, balls, solved: strikes === secret.length };
   }
 
+  function compareGuessDirection(secret, guess) {
+    const secretValue = BigInt(secret.join(""));
+    const guessValue = BigInt(guess.join(""));
+
+    if (guessValue < secretValue) {
+      return "UP";
+    }
+    if (guessValue > secretValue) {
+      return "DOWN";
+    }
+    return "SAME";
+  }
+
   function validateGuess(value, config) {
     if (!/^\d+$/.test(value)) {
       return "숫자만 입력할 수 있습니다.";
@@ -157,14 +174,32 @@
     return open[Math.floor(random() * open.length)];
   }
 
+  function pickUnscannedParity(secret, scannedPositions, random = Math.random) {
+    const open = secret
+      .map((digit, index) => ({
+        digit,
+        index,
+        parity: Number(digit) % 2 === 0 ? "짝수" : "홀수",
+      }))
+      .filter((entry) => !scannedPositions.some((scanned) => scanned.index === entry.index));
+
+    if (open.length === 0) {
+      return null;
+    }
+
+    return open[Math.floor(random() * open.length)];
+  }
+
   const api = {
     SHOP_ITEMS,
     calculateReward,
     countDuplicateKinds,
+    compareGuessDirection,
     generateCode,
     getRoundConfig,
     judgeGuess,
     pickAbsentDigits,
+    pickUnscannedParity,
     pickUnlockedPosition,
     validateGuess,
   };

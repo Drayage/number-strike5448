@@ -97,6 +97,12 @@
             <button id="useLockerButton" type="button" data-testid="use-locker">
               위치 고정장치 <span id="lockerCount">0</span>
             </button>
+            <button id="useScannerButton" type="button" data-testid="use-scanner">
+              자리 스캐너 <span id="scannerCount">0</span>
+            </button>
+            <button id="useUpdownButton" type="button" data-testid="use-updown">
+              업다운 확인기 <span id="updownCount">0</span>
+            </button>
           </div>
 
           <div class="intel">
@@ -109,8 +115,24 @@
               <strong id="lockedDigits">없음</strong>
             </div>
             <div>
+              <span>홀짝 정보</span>
+              <strong id="parityIntel">없음</strong>
+            </div>
+            <div>
               <span>분석 돋보기</span>
               <strong id="duplicateIntel">미보유</strong>
+            </div>
+            <div>
+              <span>황금 나침반</span>
+              <strong id="compassIntel">없음</strong>
+            </div>
+            <div>
+              <span>업다운 확인</span>
+              <strong id="updownIntel">없음</strong>
+            </div>
+            <div>
+              <span>재판정권</span>
+              <strong id="retryIntel">없음</strong>
             </div>
           </div>
         </div>
@@ -160,6 +182,26 @@
             <span>분석용 돋보기</span>
             <strong>150 Gold</strong>
             <small>중복 숫자 종류 수 사전 공개</small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="retry">
+            <span>재판정권</span>
+            <strong>50 Gold</strong>
+            <small>다음 오답 피해 1회 무효</small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="parityScanner">
+            <span>자리 스캐너</span>
+            <strong>70 Gold</strong>
+            <small>무작위 1자리 홀짝 공개</small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="compass">
+            <span>황금 나침반</span>
+            <strong>130 Gold</strong>
+            <small>다음 클리어 보상 +50%</small>
+          </button>
+          <button class="shop-item" type="button" data-shop-item="updown">
+            <span>업다운 확인기</span>
+            <strong>55 Gold</strong>
+            <small>입력값과 정답 크기 비교</small>
           </button>
         </div>
       </section>

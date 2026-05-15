@@ -27,7 +27,7 @@ const path = require("node:path");
     maxHp: 10,
     gold: 0,
     attempts: 0,
-    inventory: { eliminator: 0, locker: 0, magnifier: false },
+    inventory: { eliminator: 0, locker: 0, magnifier: false, updown: 1 },
     phase: "playing",
     secret: ["1"],
     eliminated: [],
@@ -43,8 +43,11 @@ const path = require("node:path");
   const isReadOnly = await page.locator("#guessInput").evaluate((input) => input.readOnly);
   console.log(isReadOnly ? "mobile input locked ok" : "mobile input locked failed");
   await page.locator("[data-keypad='0']").click();
-  await page.locator("[data-keypad='enter']").click();
+  await page.getByTestId("use-updown").click();
   let text = await page.locator("body").innerText();
+  console.log(text.includes("0: UP") ? "updown item ok" : "updown item failed");
+  await page.locator("[data-keypad='enter']").click();
+  text = await page.locator("body").innerText();
   console.log(text.includes("0S 0B") && text.includes("HP -1") ? "mobile keypad wrong ok" : "mobile keypad wrong failed");
 
   await page.locator("[data-keypad='1']").click();

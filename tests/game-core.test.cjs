@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const {
   calculateReward,
+  compareGuessDirection,
   countDuplicateKinds,
   getRoundConfig,
   judgeGuess,
@@ -19,6 +20,10 @@ assert.deepEqual(judgeGuess(["4", "5", "4", "1"], ["4", "4", "5", "1"]), {
   balls: 2,
   solved: false,
 });
+
+assert.equal(compareGuessDirection(["5", "0"], ["4", "9"]), "UP");
+assert.equal(compareGuessDirection(["5", "0"], ["5", "1"]), "DOWN");
+assert.equal(compareGuessDirection(["5", "0"], ["5", "0"]), "SAME");
 
 assert.equal(validateGuess("112", getRoundConfig(3)), "이번 라운드는 중복 숫자를 사용할 수 없습니다.");
 assert.equal(validateGuess("112", getRoundConfig(6)), "");
