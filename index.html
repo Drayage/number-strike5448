@@ -49,9 +49,8 @@
             </div>
             <div class="panel-header-actions">
               <button id="memoToggleButton" class="icon-button" type="button" title="메모 모드" aria-label="메모 모드">✎</button>
-              <button id="newRunButton" class="icon-button" type="button" title="새 도전" aria-label="새 도전">
-                ↻
-              </button>
+              <button id="memoClearButton" class="icon-button" type="button" title="메모 초기화" aria-label="메모 초기화">✕</button>
+              <button id="newRunButton" class="icon-button" type="button" title="새 도전" aria-label="새 도전">RE</button>
             </div>
           </div>
 
@@ -110,6 +109,8 @@
             <button type="button" data-keypad="0">0</button>
             <button type="button" data-keypad="enter">판정</button>
           </div>
+
+          <button id="scrollToLogButton" class="mobile-nav-btn" type="button">추론 기록 ↓</button>
 
           <div class="quick-actions" aria-label="Items">
             <button id="useEliminatorButton" type="button" data-testid="use-eliminator">
@@ -195,6 +196,7 @@
               <p class="eyebrow">Combat Log</p>
               <h2>추론 기록</h2>
             </div>
+            <button id="scrollToGameButton" class="mobile-nav-btn" type="button">문제로 ↑</button>
           </div>
           <ol id="historyList" class="history-list"></ol>
         </aside>

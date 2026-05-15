@@ -177,6 +177,16 @@ h2 {
   font-size: 1.25rem;
 }
 
+.panel-header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.mobile-nav-btn {
+  display: none;
+}
+
 .code-slots {
   --slot-count: 5;
   display: grid;
@@ -231,6 +241,10 @@ h2 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-top: 14px;
+}
+
+.mobile-keypad.memo-visible {
+  display: grid;
 }
 
 .mobile-keypad button {
@@ -634,6 +648,10 @@ input:focus {
 
   .mobile-keypad {
     display: grid;
+  }
+
+  .mobile-nav-btn {
+    display: block;
   }
 
   .quick-actions {

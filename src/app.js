@@ -140,6 +140,9 @@
     overlayButton: $("#overlayButton"),
     bestRoundLabel: $("#bestRoundLabel"),
     memoToggleButton: $("#memoToggleButton"),
+    memoClearButton: $("#memoClearButton"),
+    scrollToLogButton: $("#scrollToLogButton"),
+    scrollToGameButton: $("#scrollToGameButton"),
   };
 
   function loadState() {
@@ -216,6 +219,15 @@
     elements.eyeOfTruthCount.textContent = state.inventory.eyeOfTruth;
     elements.mouthOfTruthCount.textContent = state.inventory.mouthOfTruth;
     elements.handOfTruthCount.textContent = state.inventory.handOfTruth;
+    elements.useEliminatorButton.hidden = state.inventory.eliminator <= 0;
+    elements.useLockerButton.hidden = state.inventory.locker <= 0;
+    elements.useScannerButton.hidden = state.inventory.parityScanner <= 0;
+    elements.useUpdownButton.hidden = state.inventory.updown <= 0;
+    elements.useCounterButton.hidden = state.inventory.counter <= 0;
+    elements.useSignalDetectorButton.hidden = state.inventory.signalDetector <= 0;
+    elements.useEyeOfTruthButton.hidden = state.inventory.eyeOfTruth <= 0;
+    elements.useMouthOfTruthButton.hidden = state.inventory.mouthOfTruth <= 0;
+    elements.useHandOfTruthButton.hidden = state.inventory.handOfTruth <= 0;
     elements.useEliminatorButton.disabled = state.inventory.eliminator <= 0 || isShop || isGameOver;
     elements.useLockerButton.disabled = state.inventory.locker <= 0 || isShop || isGameOver;
     elements.useScannerButton.disabled = state.inventory.parityScanner <= 0 || isShop || isGameOver;
@@ -364,24 +376,12 @@
         : "history-item" + (isSelected ? " log-selected" : "");
       item.dataset.logIndex = actualIndex;
 
-      // Build the guess span with diff highlighting
-      const prevEntry = actualIndex > 0 ? allEntries[actualIndex - 1] : null;
       let guessHtml = "";
 
       if (cmpPositions && (actualIndex === cmpPositions.i1 || actualIndex === cmpPositions.i2)) {
-        // Log comparison highlighting overrides per-entry diff
         for (let p = 0; p < entry.guess.length; p++) {
           if (cmpPositions.positions.includes(p)) {
             guessHtml += `<strong class="cmp-digit">${entry.guess[p]}</strong>`;
-          } else {
-            guessHtml += entry.guess[p];
-          }
-        }
-      } else if (prevEntry) {
-        // Per-entry diff vs previous guess
-        for (let p = 0; p < entry.guess.length; p++) {
-          if (entry.guess[p] !== prevEntry.guess[p]) {
-            guessHtml += `<strong class="diff-digit">${entry.guess[p]}</strong>`;
           } else {
             guessHtml += entry.guess[p];
           }
@@ -810,8 +810,18 @@
     memoTargetSlot = null;
     const btn = document.getElementById("memoToggleButton");
     if (btn) btn.classList.toggle("active", memoMode);
+    document.querySelector(".mobile-keypad")?.classList.toggle("memo-visible", memoMode);
     renderCodeSlots(getRoundConfig(state.round));
     setHint(memoMode ? "메모 모드: 숫자 칸을 눌러 메모를 입력하세요." : "메모 모드 해제.", "normal");
+  }
+
+  function clearMemo() {
+    state.slotMemos = {};
+    state.digitMemos = {};
+    renderCodeSlots(getRoundConfig(state.round));
+    renderKeypad();
+    saveState();
+    setHint("메모가 초기화되었습니다.", "normal");
   }
 
   function activateSlotMemo(index) {
@@ -839,6 +849,7 @@
     renderDigitPicker(false);
     const memoBtn = document.getElementById("memoToggleButton");
     if (memoBtn) memoBtn.classList.remove("active");
+    document.querySelector(".mobile-keypad")?.classList.remove("memo-visible");
     setHint("새 도전을 시작했습니다.", "normal");
     render();
     elements.guessInput.focus();
@@ -996,6 +1007,19 @@
   elements.useHandOfTruthButton.addEventListener("click", useHandOfTruth);
   if (elements.memoToggleButton) {
     elements.memoToggleButton.addEventListener("click", toggleMemoMode);
+  }
+  if (elements.memoClearButton) {
+    elements.memoClearButton.addEventListener("click", clearMemo);
+  }
+  if (elements.scrollToLogButton) {
+    elements.scrollToLogButton.addEventListener("click", () => {
+      document.querySelector(".log-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+  if (elements.scrollToGameButton) {
+    elements.scrollToGameButton.addEventListener("click", () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
   }
   document.querySelectorAll("[data-shop-item]").forEach((button) => {
     button.addEventListener("click", () => buyItem(button.dataset.shopItem));
