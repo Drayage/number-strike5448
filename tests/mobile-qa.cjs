@@ -1,4 +1,6 @@
 const { chromium } = require("playwright");
+const { pathToFileURL } = require("node:url");
+const path = require("node:path");
 
 (async () => {
   const browser = await chromium.launch({
@@ -37,7 +39,9 @@ const { chromium } = require("playwright");
   await page.addInitScript((state) => {
     localStorage.setItem("number-challenge-save", JSON.stringify(state));
   }, save);
-  await page.goto("file:///C:/Users/ccssh/Documents/New%20project/index.html");
+  await page.goto(pathToFileURL(path.join(__dirname, "..", "index.html")).href);
+  const isReadOnly = await page.locator("#guessInput").evaluate((input) => input.readOnly);
+  console.log(isReadOnly ? "mobile input locked ok" : "mobile input locked failed");
   await page.locator("[data-keypad='0']").click();
   await page.locator("[data-keypad='enter']").click();
   let text = await page.locator("body").innerText();

@@ -129,6 +129,7 @@
     renderHistory();
     renderShopButtons();
     renderReward();
+    syncInputLock();
     saveState();
   }
 
@@ -185,7 +186,7 @@
       return;
     }
     const reward = state.lastReward;
-    elements.rewardSummary.textContent = `${reward.bonusLabel}: 기본 ${reward.base} Gold × ${reward.multiplier} = ${reward.total} Gold 획득`;
+    elements.rewardSummary.textContent = `${reward.bonusLabel}: 기본 ${reward.base} Gold × ${reward.multiplier} = ${reward.total} Gold 획득 · HP +${reward.heal}`;
   }
 
   function getDuplicateIntel(config) {
@@ -236,10 +237,13 @@
 
   function completeRound() {
     const reward = calculateReward(state.round, state.attempts);
+    const heal = reward.bonusLabel === "Perfect" ? 2 : 1;
+    const beforeHp = state.hp;
     state.gold += reward.total;
-    state.lastReward = reward;
+    state.hp = Math.min(state.maxHp, state.hp + heal);
+    state.lastReward = { ...reward, heal: state.hp - beforeHp };
     state.phase = "shop";
-    setHint("정답입니다. 상점에서 다음 라운드를 준비하세요.", "success");
+    setHint(`정답입니다. HP가 ${state.hp - beforeHp} 회복되었습니다.`, "success");
     render();
   }
 
@@ -365,7 +369,6 @@
 
     if (value === "back") {
       elements.guessInput.value = elements.guessInput.value.slice(0, -1);
-      elements.guessInput.focus();
       return;
     }
 
@@ -376,8 +379,11 @@
 
     if (/^\d$/.test(value) && elements.guessInput.value.length < config.digits) {
       elements.guessInput.value += value;
-      elements.guessInput.focus();
     }
+  }
+
+  function syncInputLock() {
+    elements.guessInput.readOnly = window.matchMedia("(max-width: 560px)").matches;
   }
 
   elements.guessForm.addEventListener("submit", submitGuess);
@@ -392,6 +398,7 @@
   document.querySelectorAll("[data-keypad]").forEach((button) => {
     button.addEventListener("click", () => handleKeypad(button.dataset.keypad));
   });
+  window.addEventListener("resize", syncInputLock);
 
   ensureRound();
   render();
