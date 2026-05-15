@@ -1013,12 +1013,20 @@
   }
   if (elements.scrollToLogButton) {
     elements.scrollToLogButton.addEventListener("click", () => {
-      document.querySelector(".log-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const el = document.querySelector(".log-panel");
+      if (el) {
+        const top = el.getBoundingClientRect().top + window.pageYOffset - 60;
+        window.scrollTo({ top, behavior: "smooth" });
+      }
     });
   }
   if (elements.scrollToGameButton) {
     elements.scrollToGameButton.addEventListener("click", () => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      const el = document.querySelector(".code-panel");
+      if (el) {
+        const top = el.getBoundingClientRect().top + window.pageYOffset - 60;
+        window.scrollTo({ top, behavior: "smooth" });
+      }
     });
   }
   document.querySelectorAll("[data-shop-item]").forEach((button) => {
