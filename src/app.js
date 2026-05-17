@@ -297,6 +297,7 @@
     elements.retryIntel.textContent = state.inventory.retry > 0 ? `피해 무효 ${state.inventory.retry}회` : "없음";
     elements.bestRoundLabel.textContent = records.bestRound > 0 ? `${records.bestRound}라운드` : "—";
 
+    if (kidsMode && state.phase === "playing") updateKidsMemos();
     renderCodeSlots(config);
     renderHistory();
     renderShopButtons();
@@ -545,7 +546,6 @@
       }`,
       protectedByRetry ? "warn" : "danger",
     );
-    if (kidsMode) updateKidsMemos();
     render();
   }
 
@@ -981,24 +981,71 @@
 
   const MAX_CANDS = 500;
 
+  function hasAnyIntel() {
+    return state.eliminated.length > 0 ||
+      state.locked.length > 0 ||
+      state.parityIntel.length > 0 ||
+      state.counterIntel.length > 0 ||
+      state.signalIntel.length > 0 ||
+      state.mouthOfTruthIntel !== null ||
+      (state.updownIntel && state.updownIntel !== "없음");
+  }
+
+  function parseUpdownIntel() {
+    if (!state.updownIntel || state.updownIntel === "없음") return null;
+    const m = state.updownIntel.match(/^(\d+):\s*(UP|DOWN|SAME)$/);
+    if (!m) return null;
+    return { guess: m[1].split(""), dir: m[2] };
+  }
+
   function computeConsistentCandidates(history, config) {
-    if (history.length === 0) return null;
     const solvedEntries = history.filter(e => !e.solved);
-    if (solvedEntries.length === 0) return null;
+    if (solvedEntries.length === 0 && !hasAnyIntel()) return null;
 
     const digits = config.digits;
     const pool = ["0","1","2","3","4","5","6","7","8","9"];
     const cands = [];
+    const updownConstraint = parseUpdownIntel();
+
+    function isConsistent(cur) {
+      for (const entry of solvedEntries) {
+        const r = judgeGuess(cur, entry.guess.split(""));
+        if (r.strikes !== entry.strikes || r.balls !== entry.balls) return false;
+      }
+      for (const d of state.eliminated) {
+        if (cur.includes(d)) return false;
+      }
+      for (const lock of state.locked) {
+        if (cur[lock.index] !== lock.digit) return false;
+      }
+      for (const p of state.parityIntel) {
+        const isEven = Number(cur[p.index]) % 2 === 0;
+        const wantEven = p.parity === "짝수";
+        if (isEven !== wantEven) return false;
+      }
+      for (const c of state.counterIntel) {
+        if (countDigitOccurrences(cur, c.digit) !== c.count) return false;
+      }
+      for (const s of state.signalIntel) {
+        if (cur.includes(s.digit) !== s.present) return false;
+      }
+      if (state.mouthOfTruthIntel) {
+        const m = getMostRepeatedDigit(cur);
+        if (m.digit !== state.mouthOfTruthIntel.digit ||
+            m.count !== state.mouthOfTruthIntel.count) return false;
+      }
+      if (updownConstraint) {
+        const d = compareGuessDirection(cur, updownConstraint.guess);
+        if (d !== updownConstraint.dir) return false;
+      }
+      return true;
+    }
 
     function generate(cur) {
       if (cands.length >= MAX_CANDS) return;
       if (cur.length === digits) {
         if (!config.allowDuplicate && new Set(cur).size !== digits) return;
-        for (const entry of solvedEntries) {
-          const r = judgeGuess(cur, entry.guess.split(""));
-          if (r.strikes !== entry.strikes || r.balls !== entry.balls) return;
-        }
-        cands.push(cur.join(""));
+        if (isConsistent(cur)) cands.push(cur.join(""));
         return;
       }
       for (const d of pool) {
