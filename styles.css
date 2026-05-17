@@ -169,6 +169,11 @@ h2 {
   align-items: center;
 }
 
+.panel-header > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
 .icon-button {
   width: 42px;
   height: 42px;
@@ -192,9 +197,12 @@ h2 {
 }
 
 #scrollToGameButton {
+  flex-shrink: 0;
   width: auto;
   white-space: nowrap;
   margin-bottom: 0;
+  font-size: 0.8rem;
+  padding: 4px 10px;
 }
 
 .code-slots {
