@@ -42,7 +42,7 @@
     round: 1,
     hp: 10,
     maxHp: 10,
-    gold: 0,
+    gold: 50,
     attempts: 0,
     inventory: {
       eliminator: 0,
@@ -82,6 +82,7 @@
   let memoMode = false;
   let memoTargetSlot = null;
   let selectedLogIndices = [];  // up to 2 indices for log comparison
+  let kidsMode = false;
 
   let state = loadState() ?? initialState();
 
@@ -143,6 +144,7 @@
     memoClearButton: $("#memoClearButton"),
     scrollToLogButton: $("#scrollToLogButton"),
     scrollToGameButton: $("#scrollToGameButton"),
+    kidsModeButton: $("#kidsModeButton"),
   };
 
   function loadState() {
@@ -300,6 +302,7 @@
     renderShopButtons();
     renderReward();
     renderKeypad();
+    renderCandidateHints();
     syncInputLock();
     saveState();
   }
@@ -542,6 +545,7 @@
       }`,
       protectedByRetry ? "warn" : "danger",
     );
+    if (kidsMode) updateKidsMemos();
     render();
   }
 
@@ -564,12 +568,13 @@
   function endRun() {
     state.hp = 0;
     state.phase = "gameOver";
-    updateBestRound(state.round);
+    if (!kidsMode) updateBestRound(state.round);
     clearSave();
+    const kidsSuffix = kidsMode ? " (어린이 모드 — 기록 미저장)" : "";
     showOverlay(
       "Game Over",
       "도전 종료",
-      `${state.round}라운드에서 쓰러졌습니다. 마지막 정답은 ${state.secret.join("")}였습니다.`,
+      `${state.round}라운드에서 쓰러졌습니다. 마지막 정답은 ${state.secret.join("")}였습니다.${kidsSuffix}`,
     );
     render();
   }
@@ -588,7 +593,7 @@
   function startNextRound() {
     const nextRound = state.round + 1;
     state.round = nextRound;
-    updateBestRound(nextRound);
+    if (!kidsMode) updateBestRound(nextRound);
     state.phase = "playing";
     state.attempts = 0;
     state.secret = generateCode(getRoundConfig(nextRound));
@@ -603,6 +608,7 @@
     state.mouthOfTruthIntel = null;
     state.slotMemos = {};
     state.digitMemos = {};
+    if (kidsMode) initKidsMemos(getRoundConfig(nextRound).digits);
     setHint("새 코드가 생성되었습니다.", "normal");
 
     if (nextRound === 16) {
@@ -839,6 +845,7 @@
   function newRun() {
     state = initialState();
     state.secret = generateCode(getRoundConfig(1));
+    if (kidsMode) initKidsMemos(getRoundConfig(1).digits);
     clearSave();
     hideOverlay();
     // Reset runtime state
@@ -850,6 +857,8 @@
     const memoBtn = document.getElementById("memoToggleButton");
     if (memoBtn) memoBtn.classList.remove("active");
     document.querySelector(".mobile-keypad")?.classList.remove("memo-visible");
+    const hintEl = document.getElementById("candidateHints");
+    if (hintEl) hintEl.hidden = true;
     setHint("새 도전을 시작했습니다.", "normal");
     render();
     elements.guessInput.focus();
@@ -892,9 +901,13 @@
         saveState();
         return;
       } else if (value === "back") {
-        // Close slot selection
-        memoTargetSlot = null;
+        // "전체" in memo+slot mode: fill all non-X digits into slot memo
+        const all = ["0","1","2","3","4","5","6","7","8","9"]
+          .filter(d => state.digitMemos[d] !== "X");
+        const existing = state.slotMemos[memoTargetSlot] ?? [];
+        state.slotMemos[memoTargetSlot] = [...new Set([...existing, ...all])].sort();
         renderCodeSlots(config);
+        saveState();
         return;
       } else if (value === "enter") {
         // Cancel memo mode
@@ -921,6 +934,7 @@
 
     if (value === "back") {
       elements.guessInput.value = elements.guessInput.value.slice(0, -1);
+      renderCandidateHints();
       return;
     }
 
@@ -931,6 +945,7 @@
 
     if (/^\d$/.test(value) && elements.guessInput.value.length < config.digits) {
       elements.guessInput.value += value;
+      renderCandidateHints();
     }
   }
 
@@ -964,6 +979,96 @@
     setTimeout(() => container.remove(), 2600);
   }
 
+  const MAX_CANDS = 500;
+
+  function computeConsistentCandidates(history, config) {
+    if (history.length === 0) return null;
+    const solvedEntries = history.filter(e => !e.solved);
+    if (solvedEntries.length === 0) return null;
+
+    const digits = config.digits;
+    const pool = ["0","1","2","3","4","5","6","7","8","9"];
+    const cands = [];
+
+    function generate(cur) {
+      if (cands.length >= MAX_CANDS) return;
+      if (cur.length === digits) {
+        if (!config.allowDuplicate && new Set(cur).size !== digits) return;
+        for (const entry of solvedEntries) {
+          const r = judgeGuess(cur, entry.guess.split(""));
+          if (r.strikes !== entry.strikes || r.balls !== entry.balls) return;
+        }
+        cands.push(cur.join(""));
+        return;
+      }
+      for (const d of pool) {
+        if (!config.allowDuplicate && cur.includes(d)) continue;
+        generate([...cur, d]);
+      }
+    }
+
+    generate([]);
+    return cands;
+  }
+
+  function initKidsMemos(digits) {
+    state.slotMemos = {};
+    for (let i = 0; i < digits; i++) {
+      state.slotMemos[i] = ["0","1","2","3","4","5","6","7","8","9"];
+    }
+  }
+
+  function updateKidsMemos() {
+    const config = getRoundConfig(state.round);
+    const cands = computeConsistentCandidates(state.history, config);
+    if (!cands || cands.length === 0) return;
+    for (let i = 0; i < config.digits; i++) {
+      const possible = new Set(cands.map(c => c[i]));
+      if (state.slotMemos[i]) {
+        state.slotMemos[i] = state.slotMemos[i].filter(d => possible.has(d));
+      }
+    }
+  }
+
+  function renderCandidateHints() {
+    const hintEl = document.getElementById("candidateHints");
+    if (!hintEl) return;
+
+    if (!kidsMode || state.phase !== "playing" || state.history.length === 0) {
+      hintEl.hidden = true;
+      return;
+    }
+
+    const config = getRoundConfig(state.round);
+    const cands = computeConsistentCandidates(state.history, config);
+    if (!cands) { hintEl.hidden = true; return; }
+
+    const prefix = elements.guessInput.value.trim();
+    const filtered = prefix ? cands.filter(c => c.startsWith(prefix)) : cands;
+
+    if (filtered.length === 0) { hintEl.hidden = true; return; }
+
+    hintEl.hidden = false;
+    const SHOW_ALL = 10;
+    const CAP = 4;
+    const shown = filtered.length <= SHOW_ALL ? filtered : filtered.slice(0, CAP);
+    const extra = filtered.length > SHOW_ALL ? filtered.length - CAP : 0;
+
+    const extraLabel = cands.length >= MAX_CANDS && filtered.length > SHOW_ALL
+      ? `${MAX_CANDS}+개`
+      : `외 ${filtered.length - CAP}개`;
+    hintEl.innerHTML =
+      shown.map(c => `<button type="button" class="hint-chip" data-value="${c}">${c}</button>`).join("") +
+      (extra > 0 ? `<span class="hint-more">${extraLabel}</span>` : "");
+
+    hintEl.querySelectorAll(".hint-chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        elements.guessInput.value = btn.dataset.value;
+        hintEl.hidden = true;
+      });
+    });
+  }
+
   function renderKeypad() {
     document.querySelectorAll("[data-keypad]").forEach((button) => {
       const val = button.dataset.keypad;
@@ -983,6 +1088,8 @@
         } else if (annotationEl) {
           annotationEl.remove();
         }
+      } else if (val === "back") {
+        button.textContent = (memoMode && memoTargetSlot !== null) ? "전체" : "⌫";
       }
     });
   }
@@ -993,9 +1100,23 @@
 
   // Event listeners
   elements.guessForm.addEventListener("submit", submitGuess);
+  elements.guessInput.addEventListener("input", renderCandidateHints);
   elements.nextRoundButton.addEventListener("click", startNextRound);
-  elements.newRunButton.addEventListener("click", newRun);
+  elements.newRunButton.addEventListener("click", () => {
+    if (elements.kidsModeButton) {
+      elements.kidsModeButton.textContent = `어린이 모드: ${kidsMode ? "ON" : "OFF"}`;
+      elements.kidsModeButton.classList.toggle("active", kidsMode);
+    }
+    showOverlay("새 도전", "모드를 선택하세요", "어린이 모드에서는 가능한 숫자가 자동으로 표시됩니다.");
+  });
   elements.overlayButton.addEventListener("click", newRun);
+  if (elements.kidsModeButton) {
+    elements.kidsModeButton.addEventListener("click", () => {
+      kidsMode = !kidsMode;
+      elements.kidsModeButton.textContent = `어린이 모드: ${kidsMode ? "ON" : "OFF"}`;
+      elements.kidsModeButton.classList.toggle("active", kidsMode);
+    });
+  }
   elements.useEliminatorButton.addEventListener("click", useEliminator);
   elements.useLockerButton.addEventListener("click", useLocker);
   elements.useScannerButton.addEventListener("click", useScanner);

@@ -783,3 +783,38 @@ input:focus {
   border-color: var(--accent);
   background: rgba(63, 208, 180, 0.08);
 }
+
+/* Candidate hints (kids mode autocomplete) */
+.candidate-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.hint-chip {
+  min-height: 34px;
+  padding: 0 12px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.9rem;
+}
+
+.hint-more {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Kids mode button in overlay */
+#kidsModeButton {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+#kidsModeButton.active {
+  background: var(--accent);
+  color: #07110f;
+  border-color: var(--accent);
+}
