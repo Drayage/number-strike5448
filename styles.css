@@ -191,6 +191,12 @@ h2 {
   margin-bottom: 8px;
 }
 
+#scrollToGameButton {
+  width: auto;
+  white-space: nowrap;
+  margin-bottom: 0;
+}
+
 .code-slots {
   --slot-count: 5;
   display: grid;
