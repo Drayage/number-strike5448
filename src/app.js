@@ -980,6 +980,7 @@
   }
 
   const MAX_CANDS = 500;
+  const CANDS_TIME_BUDGET_MS = 80;
 
   function hasAnyIntel() {
     return state.eliminated.length > 0 ||
@@ -998,6 +999,7 @@
     return { guess: m[1].split(""), dir: m[2] };
   }
 
+  // 자동완성용: 시간 예산 내에서 후보 열거, 초과 시 truncated=true
   function computeConsistentCandidates(history, config) {
     const solvedEntries = history.filter(e => !e.solved);
     if (solvedEntries.length === 0 && !hasAnyIntel()) return null;
@@ -1006,22 +1008,19 @@
     const pool = ["0","1","2","3","4","5","6","7","8","9"];
     const cands = [];
     const updownConstraint = parseUpdownIntel();
+    const startTime = Date.now();
+    let truncated = false;
 
     function isConsistent(cur) {
       for (const entry of solvedEntries) {
         const r = judgeGuess(cur, entry.guess.split(""));
         if (r.strikes !== entry.strikes || r.balls !== entry.balls) return false;
       }
-      for (const d of state.eliminated) {
-        if (cur.includes(d)) return false;
-      }
-      for (const lock of state.locked) {
-        if (cur[lock.index] !== lock.digit) return false;
-      }
+      for (const d of state.eliminated) if (cur.includes(d)) return false;
+      for (const lock of state.locked) if (cur[lock.index] !== lock.digit) return false;
       for (const p of state.parityIntel) {
         const isEven = Number(cur[p.index]) % 2 === 0;
-        const wantEven = p.parity === "짝수";
-        if (isEven !== wantEven) return false;
+        if (isEven !== (p.parity === "짝수")) return false;
       }
       for (const c of state.counterIntel) {
         if (countDigitOccurrences(cur, c.digit) !== c.count) return false;
@@ -1042,7 +1041,9 @@
     }
 
     function generate(cur) {
-      if (cands.length >= MAX_CANDS) return;
+      if (truncated) return;
+      if (cands.length >= MAX_CANDS) { truncated = true; return; }
+      if (Date.now() - startTime > CANDS_TIME_BUDGET_MS) { truncated = true; return; }
       if (cur.length === digits) {
         if (!config.allowDuplicate && new Set(cur).size !== digits) return;
         if (isConsistent(cur)) cands.push(cur.join(""));
@@ -1055,7 +1056,7 @@
     }
 
     generate([]);
-    return cands;
+    return { cands, truncated };
   }
 
   function initKidsMemos(digits) {
@@ -1065,15 +1066,59 @@
     }
   }
 
+  // 슬롯 메모 업데이트: S/B + 아이템 기반 단순 소거법 (열거 없음, 매우 빠름)
   function updateKidsMemos() {
+    if (state.history.length === 0 && !hasAnyIntel()) return;
     const config = getRoundConfig(state.round);
-    const cands = computeConsistentCandidates(state.history, config);
-    if (!cands || cands.length === 0) return;
-    for (let i = 0; i < config.digits; i++) {
-      const possible = new Set(cands.map(c => c[i]));
-      if (state.slotMemos[i]) {
-        state.slotMemos[i] = state.slotMemos[i].filter(d => possible.has(d));
+    const digits = config.digits;
+
+    const removeFromAll = (digit) => {
+      for (let i = 0; i < digits; i++) {
+        if (state.slotMemos[i]) {
+          state.slotMemos[i] = state.slotMemos[i].filter(d => d !== digit);
+        }
       }
+    };
+    const removeFromSlot = (i, digit) => {
+      if (state.slotMemos[i]) {
+        state.slotMemos[i] = state.slotMemos[i].filter(d => d !== digit);
+      }
+    };
+
+    // S/B 기반: 안전한 소거만
+    for (const entry of state.history) {
+      if (entry.solved) continue;
+      const guess = entry.guess.split("");
+      if (entry.strikes === 0 && entry.balls === 0) {
+        // 0S 0B: 추측의 모든 숫자가 정답에 없음
+        const uniq = [...new Set(guess)];
+        for (const d of uniq) removeFromAll(d);
+      } else if (entry.strikes === 0) {
+        // 0S NB: 각 guess[i]는 위치 i에 없음
+        for (let i = 0; i < guess.length; i++) removeFromSlot(i, guess[i]);
+      }
+    }
+
+    // 아이템 인텔 기반 소거
+    for (const d of state.eliminated) removeFromAll(d);
+    for (const lock of state.locked) {
+      if (state.slotMemos[lock.index]) {
+        state.slotMemos[lock.index] = [lock.digit];
+      }
+    }
+    for (const p of state.parityIntel) {
+      if (state.slotMemos[p.index]) {
+        state.slotMemos[p.index] = state.slotMemos[p.index].filter(d => {
+          const isEven = Number(d) % 2 === 0;
+          return p.parity === "짝수" ? isEven : !isEven;
+        });
+      }
+    }
+    for (const c of state.counterIntel) {
+      if (c.count === 0) removeFromAll(c.digit);
+    }
+    for (const s of state.signalIntel) {
+      if (!s.present) removeFromAll(s.digit);
     }
   }
 
@@ -1087,8 +1132,17 @@
     }
 
     const config = getRoundConfig(state.round);
-    const cands = computeConsistentCandidates(state.history, config);
-    if (!cands) { hintEl.hidden = true; return; }
+    const result = computeConsistentCandidates(state.history, config);
+    if (!result) { hintEl.hidden = true; return; }
+
+    const { cands, truncated } = result;
+
+    // 후보 너무 많으면 건너뜀 (lag 방지)
+    if (truncated) {
+      hintEl.hidden = false;
+      hintEl.innerHTML = `<span class="hint-more">후보가 너무 많아 표시를 건너뜁니다</span>`;
+      return;
+    }
 
     const prefix = elements.guessInput.value.trim();
     const filtered = prefix ? cands.filter(c => c.startsWith(prefix)) : cands;
@@ -1101,12 +1155,9 @@
     const shown = filtered.length <= SHOW_ALL ? filtered : filtered.slice(0, CAP);
     const extra = filtered.length > SHOW_ALL ? filtered.length - CAP : 0;
 
-    const extraLabel = cands.length >= MAX_CANDS && filtered.length > SHOW_ALL
-      ? `${MAX_CANDS}+개`
-      : `외 ${filtered.length - CAP}개`;
     hintEl.innerHTML =
       shown.map(c => `<button type="button" class="hint-chip" data-value="${c}">${c}</button>`).join("") +
-      (extra > 0 ? `<span class="hint-more">${extraLabel}</span>` : "");
+      (extra > 0 ? `<span class="hint-more">외 ${extra}개</span>` : "");
 
     hintEl.querySelectorAll(".hint-chip").forEach(btn => {
       btn.addEventListener("click", () => {
